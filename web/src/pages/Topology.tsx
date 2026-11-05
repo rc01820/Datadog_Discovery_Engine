@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { api } from "../api";
 import Inspector from "../components/Inspector";
-import TopologyGraph, { REL, relationCounts, type TopoData, type TopologyHandle } from "../components/TopologyGraph";
+import TopologyGraph, { POLICY_COLOR, REL, relationCounts, type TopoData, type TopologyHandle } from "../components/TopologyGraph";
 import { useApp } from "../context";
 import { copy, cx, TypeIcon } from "../util";
 
@@ -66,6 +66,12 @@ export default function Topology() {
             {(REL[rel] ?? { label: rel }).label}{n ? ` (${n})` : ""}
           </button>
         ))}
+        {data.nodes.some((n) => n.tag_compliant === false) && (
+          <span className="topo-chip on" title="Outlined nodes fail Tag Enforcer's tag policy. Solid outline: a monitor misses the resource because of it.">
+            <span className="topo-swatch" style={{ borderTopColor: POLICY_COLOR }} />
+            Fails tag policy ({data.nodes.filter((n) => n.tag_compliant === false).length})
+          </span>
+        )}
         <span className="muted small topo-hint">Click a node to inspect · double-click to recenter · scroll to zoom · drag to pan · groups over 12 collapse to “+N more”</span>
       </div>
 

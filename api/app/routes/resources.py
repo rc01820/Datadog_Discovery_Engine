@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from .. import datadog, db, inventory, security
+from .. import datadog, db, inventory, security, tagenforcer
 from .search import SUMMARY_COLS, _stale_cutoff, summarize
 
 router = APIRouter(prefix="/api/v1/resources", tags=["resources"])
@@ -43,7 +43,26 @@ def detail(rid: int, user: dict = Depends(security.require("inspect"))):
     }
     out["links"] = {k: datadog.link(conn["site"], k, row["name"]) for k in ("logs", "metrics")} if row["type"] in ("Host", "VMware", "Cloud") else {}
     out["scope_monitor_count"] = counts["monitors"] if counts else 0
+    out["tag_policy"] = tag_policy(rid)
     return out
+
+
+def tag_policy(rid: int) -> dict:
+    """Tag Enforcer's verdict for one resource, for the inspector's Tag policy tab."""
+    if not tagenforcer.configured():
+        return {"available": False, "evaluated": False}
+    with db.conn() as c:
+        row = c.execute("SELECT * FROM tag_compliance WHERE resource_id=%s", (rid,)).fetchone()
+        last = c.execute("SELECT finished_at FROM tag_enforcer_imports WHERE status='success' "
+                         "ORDER BY id DESC LIMIT 1").fetchone()
+    base = {"available": True, "imported_at": last["finished_at"] if last else None}
+    if not row:
+        return {**base, "evaluated": False}
+    return {**base, "evaluated": True, "te_scan_id": row["te_scan_id"], "compliant": row["compliant"],
+            "error_count": row["error_count"], "warning_count": row["warning_count"],
+            "remediable": row["remediable"], "teams": row["teams"], "issues": row["issues"],
+            "findings": row["findings"], "blind_spots": row["blind_spots"],
+            "link": tagenforcer.link(row["te_path"])}
 
 
 OUTGOING = {"monitors": "scoped_to", "runs_on": "runs_on", "runs_in": "runs_in", "member_of": "member_of",
@@ -150,6 +169,11 @@ def topology(rid: int, hops: int = Query(1, ge=1, le=2), user: dict = Depends(se
                         nodes[y["id"]] = _node(y, 2)
                     link_(x["id"], y["id"], y["relation"], y["evidence"])
             truncated = truncated or len(first) > TOPO_EXPAND
+        # Tag Enforcer verdicts, so the graph can outline resources that fail tag policy.
+        for row in c.execute("SELECT resource_id, compliant, jsonb_array_length(blind_spots) AS blind "
+                             "FROM tag_compliance WHERE resource_id = ANY(%s)", (list(nodes),)).fetchall():
+            nodes[row["resource_id"]]["tag_compliant"] = row["compliant"]
+            nodes[row["resource_id"]]["blind_spots"] = row["blind"]
     return {"center": rid, "hops": hops, "nodes": list(nodes.values()), "edges": edges, "truncated": truncated,
             "center_detail": {"name": center["name"], "type": center["type"], "ips": center["ips"], "tags": center["tags"][:12]}}
 

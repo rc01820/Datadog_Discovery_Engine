@@ -588,3 +588,11 @@ a.chg:hover { text-decoration: none; filter: brightness(1.2); }
 .topo-tab-bar { margin: 6px 0 8px; }
 .small-seg button { padding: 4px 10px; font-size: 12.5px; }
 @media (max-width: 1200px) { .topo-page.with-inspector .topo-body { grid-template-columns: 1fr; } .topo-hint { margin-left: 0; } }
+
+/* ---- Tag Enforcer integration --------------------------------------------- */
+.tab-dot { display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: var(--alert); margin-left: 5px; vertical-align: middle; }
+.policy-head { align-items: center; margin-bottom: 4px; }
+.policy-findings { list-style: none; padding: 0; margin: 0; display: grid; gap: 8px; }
+.policy-findings li { padding: 8px 10px; border: 1px solid var(--border-2); border-radius: 6px; }
+.policy-findings code, .insp-body .evidence code { font-size: 12px; }
+.health-actions { display: flex; gap: 10px; align-items: center; margin-top: 10px; }

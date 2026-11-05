@@ -1,5 +1,20 @@
 # Changelog
 
+## 1.5.0 (2026-11-05)
+
+### Added: Tag Enforcer integration ([docs/tag-enforcer.md](docs/tag-enforcer.md))
+- Imports tag-policy verdicts from Tag Enforcer's `GET /api/compliance/resources` after every sync, every 15 minutes, and on demand
+  (**System Health › Import now**, `POST /api/v1/admin/tag-enforcer/import`). Configured with `TAG_ENFORCER_URL`, `TAG_ENFORCER_TOKEN`
+  and `TAG_ENFORCER_PUBLIC_URL`; off when unset.
+- **Monitor blind spots**: monitors whose scope would cover a resource if one tag were spelled as the policy says, and doesn't
+  because it isn't. Shown in the inspector, searchable as `blindspot:yes`, and listed in the new **Monitor blind spots** report.
+- Search fields `compliant:`, `tagissue:`, `fixable:`, `blindspot:` and `has:tagpolicy` / `missing:tagpolicy`, with autocomplete.
+- Inspector **Tag policy** tab (verdict, findings with suggested fixes, owning team, blind spots, link to Tag Enforcer) and a
+  *Tag policy* row on Overview.
+- Topology outlines resources that fail the policy, solid where a monitor misses them because of it.
+- **Missing required tags** report uses Tag Enforcer's policy when connected.
+- Tag Enforcer status on **System Health**. Migration `008_tag_enforcer.sql`.
+
 ## 1.4.0 (2026-11-05)
 
 ### Added

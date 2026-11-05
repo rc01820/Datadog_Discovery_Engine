@@ -149,6 +149,19 @@ Response: `{since, summary:{added:…}, by_type:{Host:…}, rows:[{id, at, resou
 | `GET /reports` | `[{key, title, description, count}]` |
 | `GET /reports/{key}` | `{key, title, description, query, columns[], rows[]}`. Keys: `alerting`, `duplicate-ips`, `missing-tags`, `stale`, `unmonitored`, `agent-versions` |
 
+## Tag Enforcer integration
+
+- `GET /resources/{id}` includes `tag_policy`: `{available, evaluated, compliant, error_count, warning_count, remediable, teams, issues, findings, blind_spots, link, te_scan_id, imported_at}`.
+  `available` is false when the integration is off; `evaluated` is false when Tag Enforcer has no verdict for the resource.
+- `GET /resources/{id}/topology` nodes carry `tag_compliant` and `blind_spots` when evaluated.
+- `GET /reports/blind-spots`: one row per (resource, monitor).
+- `POST /admin/tag-enforcer/import` (permission `admin.integrations`): import now. Returns `{status, te_scan_id, received, matched, unmatched, blind_spots}`; `502` with the reason if Tag Enforcer can't be read.
+- `GET /admin/health` includes `tag_enforcer`.
+
+```bash
+curl -s -b jar -X POST -H "X-CSRF-Token: $CSRF" $BASE/admin/tag-enforcer/import
+```
+
 ## Saved searches, favorites, history
 
 | Method & path | Body | Notes |

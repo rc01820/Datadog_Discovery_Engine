@@ -8,7 +8,7 @@ Datadog Discovery Engine is a self-hosted Docker application for NOC shifts, inf
 It indexes your Datadog inventory on a schedule, adds a query language built for operations work, and keeps a change
 history that Datadog itself does not keep.
 
-> Project / container name: `datadog-search` · Version 1.4.0 · Default Datadog site: US1 (`datadoghq.com`)
+> Project / container name: `datadog-search` · Version 1.5.0 · Default Datadog site: US1 (`datadoghq.com`)
 
 ---
 
@@ -40,6 +40,7 @@ history that Datadog itself does not keep.
 | **Correlation** | Monitors scoped to a host, containers on a host, pods in a cluster, interfaces of a device, shared app tags, IP collisions, each shown with evidence |
 | **Efficient at scale** | Syncs only rewrite records whose content changed (fingerprints, heap-only “last seen” updates, relationship diffs), and container and pod history has its own short retention. A 500k-resource estate fits in about 15–25 GB. See [capacity planning](docs/operations.md#capacity-planning) |
 | **Change history** | Retention you control (separate for containers and pods, or keep forever), **Purge now** with a preview, optional gzip CSV **archive before roll-off**, and a usage panel. Every sync is compared with the last one: added, removed, status, tag, IP and alias changes, and renames. A **What Changed** view, a timeline per resource, and answers to “when did this disappear?” |
+| **Tag policy** | Optional [Tag Enforcer integration](docs/tag-enforcer.md): search by tag-policy verdict (`compliant:no`, `tagissue:…`, `blindspot:yes`), a Tag policy inspector tab, policy outlines in Topology, and **monitor blind spots**, meaning monitors that miss a resource only because one of its tags is misspelled |
 | **Reports** | Alerting resources, duplicate IPs, missing required tags, stale inventory, infrastructure without monitors, agent version drift |
 | **Operations UX** | Resource inspector (overview, monitors, related, metrics, logs, history), deep links into Datadog, saved and shared searches, favorites, history, CSV/JSON export, keyboard shortcuts, dark and light themes, a Help page with 100+ runnable examples |
 | **Administration** | Users and roles (Administrator / Operator / Viewer), per-source sync toggles and freshness, scheduled and manual syncs, audit log, system health, demo data |
@@ -100,6 +101,8 @@ Keys can also be supplied through `DATADOG_API_KEY` / `DATADOG_APP_KEY` in `.env
 | An interface by MAC | `mac:00:1a:2b:*` |
 | Lambda functions | `aws_service:lambda` |
 | Check 300 IPs from a ticket | paste them into **Bulk Lookup** |
+| Prod hosts failing tag policy *(Tag Enforcer)* | `type:host env:prod compliant:no` |
+| Resources a monitor misses because of a tag spelling *(Tag Enforcer)* | `blindspot:yes` |
 
 The complete language reference: **[docs/search-syntax.md](docs/search-syntax.md)**. The in-app **Search Help** page has a live
 query tester and more than 100 runnable examples.
@@ -157,6 +160,7 @@ A screen-by-screen walkthrough: **[docs/user-guide.md](docs/user-guide.md)**. Ad
 | [docs/configuration.md](docs/configuration.md) | Every environment variable and in-app setting |
 | [docs/user-guide.md](docs/user-guide.md) | Using every screen, keyboard shortcuts, exports, themes |
 | [docs/search-syntax.md](docs/search-syntax.md) | Complete query language reference with examples |
+| [docs/tag-enforcer.md](docs/tag-enforcer.md) | Tag Enforcer integration: setup, search fields, blind spots, matching |
 | [docs/datadog-sources.md](docs/datadog-sources.md) | Each data source: Datadog API, permissions, field mapping, relationships, limits |
 | [docs/change-history.md](docs/change-history.md) | How change detection works, baselines, retention, “when did this disappear?” |
 | [docs/admin-guide.md](docs/admin-guide.md) | Users, roles, settings, Datadog config, demo data, audit, health |

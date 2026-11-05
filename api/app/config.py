@@ -30,6 +30,11 @@ class Settings:
     datadog_api_key: str
     datadog_app_key: str
     datadog_org: str
+    # Tag Enforcer integration (optional). url/token reach its API from the
+    # worker; public_url is what browsers are sent to (defaults to url).
+    tag_enforcer_url: str = ""
+    tag_enforcer_token: str = ""
+    tag_enforcer_public_url: str = ""
 
 
 def load() -> Settings:
@@ -46,6 +51,10 @@ def load() -> Settings:
         datadog_api_key=_secret("DATADOG_API_KEY"),
         datadog_app_key=_secret("DATADOG_APP_KEY"),
         datadog_org=os.environ.get("DATADOG_ORG", "default"),
+        tag_enforcer_url=os.environ.get("TAG_ENFORCER_URL", "").strip().rstrip("/"),
+        tag_enforcer_token=_secret("TAG_ENFORCER_TOKEN"),
+        tag_enforcer_public_url=(os.environ.get("TAG_ENFORCER_PUBLIC_URL", "").strip().rstrip("/")
+                                 or os.environ.get("TAG_ENFORCER_URL", "").strip().rstrip("/")),
     )
 
 

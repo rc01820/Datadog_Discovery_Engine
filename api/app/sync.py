@@ -5,7 +5,7 @@ from datetime import datetime, timezone
 
 from psycopg.types.json import Jsonb
 
-from . import db, demo, inventory
+from . import db, demo, inventory, tagenforcer
 from .datadog import FETCHERS, Client, SourceError, connection, link
 
 log = logging.getLogger("datadog-search.sync")
@@ -106,6 +106,13 @@ def run(job_id: int) -> None:
     counts["rows_unchanged"] = sum(s["unchanged"] + s["touched"] for s in write_stats.values())
     _finish(job_id, status, counts)
     db.audit("system", "sync.finished", f"job {job_id}", {"status": status, "counts": counts, "changes": change_counts, "errors": errors})
+    # Fresh inventory means fresh matches: re-import Tag Enforcer's verdicts so
+    # new resources get theirs and blind spots reflect the current monitors.
+    if tagenforcer.configured():
+        try:
+            tagenforcer.run_import("sync")
+        except Exception:  # noqa: BLE001 - the integration never fails a sync
+            log.exception("Tag Enforcer import after sync failed")
 
 
 def _finish(job_id, status, counts):

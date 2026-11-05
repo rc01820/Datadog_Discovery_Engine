@@ -1,12 +1,16 @@
 """NOC intelligence reports (Phase 4): actionable lists with traceable evidence."""
 from fastapi import APIRouter, Depends, HTTPException
 
-from .. import db, security
+from .. import db, security, tagenforcer
 from .search import _stale_cutoff
 
 router = APIRouter(prefix="/api/v1/reports", tags=["reports"])
 
 INFRA = ("Host", "Device", "VMware", "Cloud")
+
+
+def _te_active(c) -> bool:
+    return tagenforcer.configured() and bool(c.execute("SELECT 1 FROM tag_compliance LIMIT 1").fetchone())
 
 
 def _required_tags() -> list[str]:
@@ -20,6 +24,9 @@ REPORTS = {
     "missing-tags": ("Missing required tags", "Infrastructure missing one or more required tag keys (configurable in Admin > Settings).", ""),
     "stale": ("Stale inventory", "Infrastructure that has not reported within the stale threshold.", ""),
     "unmonitored": ("Infrastructure without monitor coverage", "No monitor scoped to it by name and no monitor sharing its app: tag.", ""),
+    "blind-spots": ("Monitor blind spots", "Resources a monitor misses only because a tag is spelled differently from what the "
+                    "policy (and the monitor's scope) expects. Fix the tag and the monitor covers it. Needs Tag Enforcer.",
+                    "blindspot:yes"),
     "agent-versions": ("Agent versions", "Datadog Agent version distribution across hosts; flags agents older than the most common major version.", ""),
 }
 
@@ -54,6 +61,30 @@ def report(key: str, user: dict = Depends(security.require("search"))):
             for r in rows:
                 r["query"] = f"ip:\"{r['ip']}\""
             cols = ["ip", "resources", "names", "types"]
+        elif key == "missing-tags" and _te_active(c):
+            # Tag Enforcer's policy is the authority when connected: per-type rules, every resource type it scans.
+            rows = c.execute(
+                """SELECT r.id, r.name, r.type, r.tags, tc.teams,
+                          ARRAY(SELECT split_part(i, ':', 2) FROM unnest(tc.issues) i
+                                WHERE i LIKE 'missing\\_required:%' ORDER BY 1) AS missing
+                   FROM tag_compliance tc JOIN resources r ON r.id = tc.resource_id
+                   WHERE EXISTS (SELECT 1 FROM unnest(tc.issues) i WHERE i LIKE 'missing\\_required:%')
+                   ORDER BY r.type, r.name""").fetchall()
+            cols = ["name", "type", "missing", "teams"]
+            q = "tagissue:missing_required"
+            desc = ("Resources missing a tag the Tag Enforcer policy requires for their type. "
+                    "Source: Tag Enforcer's latest scan (Admin › System Health shows when it was imported).")
+        elif key == "blind-spots":
+            rows = []
+            for r in c.execute(
+                """SELECT r.id, r.name, r.type, tc.blind_spots FROM tag_compliance tc JOIN resources r ON r.id = tc.resource_id
+                   WHERE jsonb_array_length(tc.blind_spots) > 0 ORDER BY r.type, r.name""").fetchall():
+                for b in r["blind_spots"]:
+                    rows.append({"id": r["id"], "name": r["name"], "type": r["type"], "has": b["actual_tag"],
+                                 "policy_wants": b["expected_tag"], "missed_by_monitor": b["monitor_name"]})
+            cols = ["name", "type", "has", "policy_wants", "missed_by_monitor"]
+            if not tagenforcer.configured():
+                desc += " Tag Enforcer is not connected (set TAG_ENFORCER_URL and TAG_ENFORCER_TOKEN)."
         elif key == "missing-tags":
             req = _required_tags()
             rows = []

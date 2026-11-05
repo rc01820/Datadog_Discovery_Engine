@@ -64,6 +64,10 @@ value      := word | "quoted string" | /regex/
 | `id:` | Datadog identifier (host ID, monitor ID, synthetic public ID, dashboard ID, device ID, container ID) | contains | `id:1000100` |
 | `source:` | `Datadog` or `DEMO` | contains | `source:datadog` |
 | `has:` · `missing:` | presence of `ip alias os env vendor model agent tags` or any tag key | presence | `has:alias`, `missing:costcenter` |
+| `compliant:` | Tag Enforcer verdict (`yes`/`no`). Needs the [Tag Enforcer integration](tag-enforcer.md) | yes / no | `compliant:no` |
+| `tagissue:` | Tag Enforcer problems as `category:key`; just `category` matches any key | exact token, or category prefix | `tagissue:missing_required`, `tagissue:forbidden:owner-email` |
+| `fixable:` | Tag Enforcer can rewrite this host's tags automatically | yes / no | `fixable:yes` |
+| `blindspot:` | a monitor misses this resource because of a tag spelling | yes / no | `blindspot:yes` |
 | any other `key:` | treated as an exact tag | exact tag | `costcenter:eoc`, `kube_namespace:xyz`, `aws_service:s3` |
 
 Field names are case-insensitive. A bare MAC address (`aa:bb:cc:dd:ee:ff`) is searched as text, not treated as a tag.
@@ -180,7 +184,7 @@ Free text searches aliases as well. When a row matched on an alias, it shows `al
 
 `has:x` is true when field or tag key *x* is present, and `missing:x` when it is absent.
 
-- Built-in: `ip`, `alias`, `os`, `env`, `vendor`, `model`, `agent`, `tags`
+- Built-in: `ip`, `alias`, `os`, `env`, `vendor`, `model`, `agent`, `tags`, `tagpolicy` (has a Tag Enforcer verdict)
 - Any tag key: `has:costcenter`, `missing:team`
 
 ```
@@ -252,6 +256,15 @@ mac:00:1a:2b:*
 # databases
 type:database db_engine:postgresql
 type:database host:eoc-db-xyz-01         # tag set by the integration
+
+# tag policy (Tag Enforcer integration)
+compliant:no
+type:host env:prod compliant:no
+tagissue:missing_required:service
+tagissue:forbidden
+blindspot:yes
+fixable:yes type:host
+type:host missing:tagpolicy             # hosts Tag Enforcer hasn't evaluated
 
 # AWS services
 aws_service:lambda

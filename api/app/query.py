@@ -10,6 +10,8 @@ Syntax (Datadog Search specific, not native Datadog syntax):
   alias                alias:i-0abc*  alias:ip-10-0-1-5.ec2.internal   (AWS instance IDs, EC2/RDS DNS names, Name tags)
   presence             has:ip  missing:env  has:costcenter  has:alias
   boolean              AND, OR, NOT, -term, parentheses; adjacent terms are ANDed
+  tag policy           compliant:no  tagissue:missing_required:service  tagissue:forbidden  fixable:yes  blindspot:yes
+                       has:tagpolicy / missing:tagpolicy   (verdicts imported from Tag Enforcer)
 """
 from __future__ import annotations
 
@@ -24,7 +26,7 @@ MAX_DEPTH = 12
 MAX_REGEX_LEN = 200
 
 FIELDS = {"name", "ip", "tag", "type", "status", "env", "os", "vendor", "model", "id", "source", "agent", "has", "missing",
-          "alias", "aliases", "aws", "mac"}
+          "alias", "aliases", "aws", "mac", "compliant", "tagissue", "fixable", "blindspot"}
 FIELD_SYNONYMS = {"aliases": "alias", "aws": "alias", "mac": "alias"}
 MAC_RE = re.compile(r"^(?:[0-9A-Fa-f*?]{1,2}[:-]){2,5}[0-9A-Fa-f*?]{0,2}$")
 COLUMN = {"name": "r.name", "env": "r.env", "os": "r.os", "vendor": "r.vendor", "model": "r.model",
@@ -50,6 +52,20 @@ STATUS_GROUPS = {"ok": "ok", "up": "ok", "alert": "alert", "alerting": "alert", 
 PRESENCE_COLUMNS = {"ip": "cardinality(r.ips) > 0", "alias": "cardinality(r.aliases) > 0", "aliases": "cardinality(r.aliases) > 0", "os": "r.os <> ''", "env": "r.env <> ''", "vendor": "r.vendor <> ''",
                     "agent": "r.agent_version <> ''", "tags": "cardinality(r.tags) > 0", "model": "r.model <> ''"}
 KEY_RE = re.compile(r"^[A-Za-z][\w.\-/]*$")
+# Tag Enforcer verdicts live in tag_compliance (one row per evaluated resource).
+TC = "EXISTS (SELECT 1 FROM tag_compliance tc WHERE tc.resource_id = r.id AND {cond})"
+PRESENCE_COLUMNS["tagpolicy"] = TC.format(cond="TRUE")
+TRUTHY = {"yes", "true", "1", "pass", "passing", "y"}
+FALSY = {"no", "false", "0", "fail", "failing", "n"}
+
+
+def _flag(field_name: str, value: str) -> bool:
+    v = value.lower()
+    if v in TRUTHY:
+        return True
+    if v in FALSY:
+        return False
+    raise QueryError(f"{field_name}: expects yes or no, not '{value}'")
 
 
 class QueryError(ValueError):
@@ -337,6 +353,25 @@ def compile_term(t: Term, params: list) -> str:
             params.extend([v.lower(), like_escape(v.lower()) + ":%"])
             sql = _array_any("r.tags", "lower(x.v) = %s OR lower(x.v) LIKE %s ESCAPE '\\'")
         return f"NOT ({sql})" if f == "missing" else f"({sql})"
+    if f in ("compliant", "fixable", "blindspot"):
+        if op not in ("contains", "exact"):
+            raise QueryError(f"{f}: expects yes or no")
+        want = _flag(f, v)
+        cond = {"compliant": "tc.compliant", "fixable": "tc.remediable",
+                "blindspot": "jsonb_array_length(tc.blind_spots) > 0"}[f]
+        return TC.format(cond=cond if want else f"NOT ({cond})")
+    if f == "tagissue":
+        if op == "contains":
+            low = v.lower()
+            if ":" in low:
+                params.append(low)
+                inner = _array_any("tc.issues", "x.v = %s")
+            else:
+                params.extend([low, like_escape(low) + ":%"])
+                inner = _array_any("tc.issues", "x.v = %s OR x.v LIKE %s ESCAPE '\\'")
+        else:
+            inner = _array_any("tc.issues", _match("x.v", op, v, params))
+        return TC.format(cond=inner)
     if op == "cidr":
         net = str(ipaddress.ip_network(v, strict=False))
         params.append(net)

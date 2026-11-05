@@ -1,6 +1,7 @@
 import { CheckCircle2, XCircle } from "lucide-react";
 import { useEffect, useState } from "react";
 import { api } from "../../api";
+import { useApp } from "../../context";
 import { fmtTime } from "../../util";
 
 type H = Record<string, unknown> & {
@@ -8,6 +9,7 @@ type H = Record<string, unknown> & {
   redis: Record<string, unknown> & { ok: boolean };
   worker: Record<string, unknown> & { ok: boolean };
   datadog: Record<string, unknown>;
+  tag_enforcer?: Record<string, unknown> & { ok: boolean; configured: boolean };
   version: string;
 };
 
@@ -30,9 +32,24 @@ function Card({ title, ok, data }: { title: string; ok: boolean; data: Record<st
 }
 
 export default function Health() {
+  const { toast } = useApp();
   const [h, setH] = useState<H | null>(null);
+  const [importing, setImporting] = useState(false);
+  const load = () => api<H>("/admin/health").then(setH).catch(() => {});
+  const importNow = async () => {
+    setImporting(true);
+    try {
+      const r = await api<{ status: string; matched?: number; blind_spots?: number; message?: string }>("/admin/tag-enforcer/import", { method: "POST" });
+      toast(r.status === "success" ? `Imported: ${r.matched} resources matched, ${r.blind_spots} with blind spots` : r.message ?? r.status,
+        r.status === "success" ? "ok" : "info");
+      load();
+    } catch (e) {
+      toast((e as Error).message, "error");
+    } finally {
+      setImporting(false);
+    }
+  };
   useEffect(() => {
-    const load = () => api<H>("/admin/health").then(setH).catch(() => {});
     load();
     const t = setInterval(load, 10000);
     return () => clearInterval(t);
@@ -46,6 +63,19 @@ export default function Health() {
         <Card title="Redis (datadog-search-redis)" ok={h.redis.ok} data={h.redis} />
         <Card title="Sync worker (datadog-search-worker)" ok={h.worker.ok} data={h.worker} />
         <Card title="Datadog connection" ok={Boolean(h.datadog.configured)} data={h.datadog} />
+        {h.tag_enforcer && (
+          <div>
+            <Card title="Tag Enforcer (tag policy verdicts)" ok={h.tag_enforcer.ok} data={h.tag_enforcer} />
+            {h.tag_enforcer.configured ? (
+              <div className="health-actions">
+                <button className="btn small" onClick={importNow} disabled={importing}>{importing ? "Importing…" : "Import now"}</button>
+                <span className="muted small">Also runs after every sync and every 15 minutes.</span>
+              </div>
+            ) : (
+              <p className="muted small">Set <code>TAG_ENFORCER_URL</code> and <code>TAG_ENFORCER_TOKEN</code> to import tag-policy verdicts.</p>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );
