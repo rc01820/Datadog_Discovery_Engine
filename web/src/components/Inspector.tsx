@@ -1,13 +1,15 @@
 import {
-  Activity, Copy, ExternalLink, FileText, GitBranch, LineChart, Link2, RefreshCw, Star, X,
+  Activity, Copy, ExternalLink, FileText, GitBranch, LineChart, Link2, RefreshCw, Share2, Star, X,
 } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import TopologyGraph, { type TopoData, type TopologyHandle } from "./TopologyGraph";
 import { api, type Related, type ResourceDetail } from "../api";
 import { useApp } from "../context";
 import { copy, cx, fmtTime, relTime, StatusPill, TypeIcon } from "../util";
 import Sparkline from "./Sparkline";
 
-type Tab = "overview" | "monitors" | "related" | "metrics" | "logs" | "history" | "raw";
+type Tab = "overview" | "monitors" | "related" | "topology" | "metrics" | "logs" | "history" | "raw";
 
 interface Change { id: number; at: string; change: string; summary: string }
 
@@ -137,7 +139,7 @@ export default function Inspector({ id, onClose, onAddTerm, onSelect, onChanged 
       <div className={cx("freshness", `fr-${r.freshness.mode}`)}>{r.freshness.label} · source {r.source}</div>
 
       <div className="tabs" role="tablist">
-        {(["overview", "monitors", "related", ...(isInfra || r.type === "Service" ? ["metrics", "logs"] : []), "history", "raw"] as Tab[]).map((t) => (
+        {(["overview", "monitors", "related", "topology", ...(isInfra || r.type === "Service" ? ["metrics", "logs"] : []), "history", "raw"] as Tab[]).map((t) => (
           <button key={t} role="tab" aria-selected={tab === t} className={cx(tab === t && "active")} onClick={() => setTab(t)}>
             {t === "monitors" ? `Monitors${related ? ` (${monitors.length})` : ""}` : t[0].toUpperCase() + t.slice(1)}
           </button>
@@ -179,6 +181,7 @@ export default function Inspector({ id, onClose, onAddTerm, onSelect, onChanged 
             <button onClick={() => setTab("monitors")}><Activity size={18} /> View Monitors ({related ? monitors.length : "…"})</button>
             {(isInfra || r.type === "Service") && <button onClick={() => setTab("logs")}><FileText size={18} /> View Logs</button>}
             <button onClick={() => setTab("related")}><GitBranch size={18} /> View Related ({related ? others.length : "…"})</button>
+            <button onClick={() => setTab("topology")}><Share2 size={18} /> View in Topology</button>
             {r.type === "Monitor" && <button onClick={refresh} disabled={refreshing}><RefreshCw size={18} className={cx(refreshing && "spin")} /> Refresh live status</button>}
             <button onClick={() => { copy(`${location.origin}/search?q=${encodeURIComponent(`name:"${r.name}"`)}&sel=${r.id}`); toast("Link copied"); }}>
               <Copy size={18} /> Copy shareable link
@@ -244,6 +247,8 @@ export default function Inspector({ id, onClose, onAddTerm, onSelect, onChanged 
         </div>
       )}
 
+      {tab === "topology" && <TopologyTab id={id} onSelect={onSelect} />}
+
       {tab === "history" && (
         <div className="insp-body">
           {!history && <div className="muted">Loading…</div>}
@@ -288,8 +293,43 @@ function groupBy(items: Related[]): Record<string, Related[]> {
 }
 
 const EXTRA_ATTRS: [string, string][] = [
-  ["image", "Image"], ["namespace", "Namespace"], ["cluster", "Cluster"], ["host", "Host"], ["containers", "Containers"],
+  ["engine", "Database engine"], ["db", "Database"], ["instance", "Instance"], ["image", "Image"], ["namespace", "Namespace"], ["cluster", "Cluster"], ["host", "Host"], ["containers", "Containers"],
   ["node_count", "Nodes"], ["pods", "Pods"], ["restarts", "Restarts"], ["device", "Device"], ["interface", "Interface"],
   ["mac_address", "MAC address"], ["aws_service", "AWS service"], ["region", "Region"], ["aws_account", "AWS account"],
   ["discovered_via", "Discovered via"], ["derived_from", "Derived from"],
 ];
+
+function TopologyTab({ id, onSelect }: { id: number; onSelect: (id: number) => void }) {
+  const nav = useNavigate();
+  const [hops, setHops] = useState(1);
+  const [data, setData] = useState<TopoData | null>(null);
+  const [err, setErr] = useState("");
+  const ref = useRef<TopologyHandle>(null);
+  useEffect(() => {
+    setData(null);
+    setErr("");
+    api<TopoData>(`/resources/${id}/topology`, { params: { hops } }).then(setData).catch((e) => setErr(e.message));
+  }, [id, hops]);
+  return (
+    <div className="insp-body">
+      <div className="row gap topo-tab-bar">
+        <div className="seg small-seg">
+          {[1, 2].map((h) => <button key={h} className={cx(hops === h && "active")} onClick={() => setHops(h)}>{h} hop{h === 2 ? "s" : ""}</button>)}
+        </div>
+        <span className="grow" />
+        <button className="btn small" onClick={() => ref.current?.exportPng()} title="Export PNG">PNG</button>
+        <button className="btn small" onClick={() => nav(`/topology/${id}${hops === 2 ? "?hops=2" : ""}`)}>Open full page</button>
+      </div>
+      {err && <div className="muted small">{err}</div>}
+      {!data && !err && <div className="muted">Building graph…</div>}
+      {data && data.nodes.length === 1 && <p className="muted small">No relationships found for this resource yet.</p>}
+      {data && data.nodes.length > 1 && (
+        <div className="topo-mini">
+          <TopologyGraph ref={ref} data={data} height={360} compact onSelect={onSelect}
+            onRecenter={(n) => nav(`/topology/${n}${hops === 2 ? "?hops=2" : ""}`)} />
+        </div>
+      )}
+      <p className="muted small">Click a node to inspect it here. Ctrl/⌘+scroll zooms, drag pans. Groups over 12 collapse to “+N more” (click to expand).</p>
+    </div>
+  );
+}

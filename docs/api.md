@@ -119,6 +119,7 @@ curl -s -b jar -X POST -H "X-CSRF-Token: $CSRF" -H 'Content-Type: application/js
 | Method & path | Permission | Returns |
 |---|---|---|
 | `GET /resources/{id}` | inspect | full record + `attributes`, monitor fields, `favorite`, `freshness`, `links`, `scope_monitor_count` |
+| `GET /resources/{id}/topology?hops=1\|2` | inspect | graph: `{center, hops, nodes:[{id, type, name, status, status_group, ip, source, deep_link, stale, hop}], edges:[{source, target, relation, evidence}], truncated, center_detail}`. Two hops expand up to 60 first-hop neighbours (30 each, structural relations), capped at 300 nodes |
 | `GET /resources/{id}/related` | inspect | `{related:[{relation, evidence, …resource}]}`. Relations: `monitor`, `scoped_to`, `runs_on`, `runs_in`, `member_of`, `interface_of`, `backed_by`, `workloads`, `containers`, `members`, `interfaces`, `synthetic`, `application`, `same_ip` |
 | `POST /resources/{id}/refresh` | inspect | live monitor status: `{refreshed, status, muted?, reason?}` |
 | `GET /resources/{id}/metrics` | inspect | `{mode: live|demo|error|n/a, series:[{name, points:[[ms, value]]}]}` |

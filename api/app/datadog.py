@@ -416,6 +416,46 @@ class Client:
                                "namespaces": sorted(cl["namespaces"]), "derived_from": "container tags"},
             }
 
+    # ---- databases discovered via database integration metrics -------------------
+    def databases(self):
+        """One Database resource per engine instance (and per logical db where the integration tags it)."""
+        now = int(time.time())
+        seen: set[str] = set()
+        for engine, metric, keys in DB_METRICS:
+            try:
+                data = self.get("/api/v1/query", **{"from": now - 4 * 3600, "to": now,
+                                                    "query": f"avg:{metric}{{*}} by {{{','.join(keys)}}}"})
+            except SourceError as e:
+                if e.category == "permission_denied":
+                    raise
+                continue
+            for series in data.get("series") or []:
+                tags = [t for t in (series.get("tag_set") or []) if not t.endswith(":n/a")]
+                tv = {t.split(":", 1)[0]: t.split(":", 1)[1] for t in tags if ":" in t}
+                host = tv.get("host") or tv.get("redis_host") or ""
+                instance = tv.get(keys[1]) if len(keys) > 1 else ""
+                if not (host or instance):
+                    continue
+                slug = engine.lower().replace(" ", "")
+                ext = f"db:{slug}:{host}:{instance}"
+                if ext in seen:
+                    continue
+                seen.add(ext)
+                if keys[1:2] == ["db"] and instance:
+                    name = f"{instance}@{host}" if host else instance
+                elif instance:
+                    name = f"{slug}@{host}:{instance}" if host else f"{slug}:{instance}"
+                else:
+                    name = f"{slug}@{host}"
+                aliases = [a for a in (instance, f"{host}:{instance}" if host and instance else "") if a]
+                yield {
+                    "type": "Database", "external_id": ext, "name": name, "status": "OK",
+                    "tags": sorted({*tags, f"db_engine:{slug}"}), "aliases": aliases, "vendor": engine, "model": engine,
+                    "deep_link": link(self.site, "metric", metric), "last_observed": datetime.now(timezone.utc),
+                    "attributes": {"engine": engine, "host": host, keys[1] if len(keys) > 1 else "instance": instance or None,
+                                   "discovered_via": f"metric {metric} (last 4h)", "inferred_type": True},
+                }
+
     # ---- AWS resources discovered via integration metrics ------------------------
     def aws_resources(self):
         now = int(time.time())
@@ -485,8 +525,20 @@ FETCHERS = {
     "services": "services",
     "kubernetes": "kubernetes",
     "aws": "aws_resources",
+    "databases": "databases",
 }
-DEFAULT_SOURCES = ["hosts", "monitors", "devices", "interfaces", "synthetics", "dashboards", "services", "kubernetes", "aws", "tags"]
+DEFAULT_SOURCES = ["hosts", "monitors", "devices", "interfaces", "synthetics", "dashboards", "services", "kubernetes", "aws",
+                   "databases", "tags"]
+
+# Databases discovered from Datadog database integrations: (engine, metric, [host tag, instance tag?]).
+DB_METRICS = [
+    ("PostgreSQL", "postgresql.connections", ["host", "db"]),
+    ("MySQL", "mysql.net.connections", ["host"]),
+    ("SQL Server", "sqlserver.stats.connections", ["host"]),
+    ("MongoDB", "mongodb.connections.current", ["host"]),
+    ("Redis", "redis.net.clients", ["host", "redis_port"]),
+    ("Elasticsearch", "elasticsearch.number_of_nodes", ["host", "cluster_name"]),
+]
 
 # Every data source an administrator can toggle, in display order. "tags" is derived (no API call of its own).
 SOURCE_CATALOG = [
@@ -511,6 +563,9 @@ SOURCE_CATALOG = [
     {"key": "aws", "label": "AWS services", "types": ["Cloud"], "api": "GET /api/v1/query (AWS integration metrics)",
      "description": "Lambda, RDS, ALB/NLB/ELB, S3, DynamoDB, SQS, SNS, ECS, EKS, ElastiCache, CloudFront, API Gateway, Kinesis, EFS and "
                     "NAT Gateway resources that reported AWS integration metrics in the last 4 hours."},
+    {"key": "databases", "label": "Databases", "types": ["Database"], "api": "GET /api/v1/query (database integration metrics)",
+     "description": "PostgreSQL (per database), MySQL, SQL Server, MongoDB, Redis and Elasticsearch instances that reported integration "
+                    "metrics in the last 4 hours, linked to the host they run on."},
     {"key": "tags", "label": "Tags", "types": ["Tag"], "api": "derived from all synced resources", "derived": True,
      "description": "One searchable Tag entity per distinct tag (with resource counts). High-cardinality per-pod / per-container "
                     "tags are skipped. Turning this off removes Tag entities; tags on resources stay searchable."},

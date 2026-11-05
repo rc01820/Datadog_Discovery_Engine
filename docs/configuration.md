@@ -74,6 +74,7 @@ The choice is stored in the browser's `localStorage` (`dde-theme`) and applied b
 | `compose.yaml` | Resource limits, published port binding (e.g. `127.0.0.1:8080:8080`), external DB/Redis |
 | `web/nginx.conf` | Security headers, CSP, body size, timeouts |
 | `api/app/datadog.py` → `AWS_METRICS` | Which AWS services are discovered and by which metric and tag |
+| `api/app/datadog.py` → `DB_METRICS` | Which database engines are discovered and by which metric and tags |
 | `api/app/datadog.py` → `ALIAS_TAG_KEYS` | Which tag keys are copied into host aliases |
 | `api/app/inventory.py` → `HIGH_CARDINALITY_TAG_KEYS` | Tag keys that are never promoted to Tag entities |
 | `web/src/components/MeshMountain.tsx` → `PEAKS` | The animated header mountain |

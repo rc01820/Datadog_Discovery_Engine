@@ -1,5 +1,18 @@
 # Changelog
 
+## 1.4.0 (2026-11-05)
+
+### Added
+- **Topology view**: any resource drawn as a graph of its monitors, same-app resources, shared IPs, hosts, containers/pods/databases on it,
+  cluster, interfaces and backing monitors, using the same relationships and evidence as the Related tab.
+  - An inspector **Topology** tab and **View in Topology** quick action, plus a full page at `/topology/<id>` (`?hops=2`) with a side inspector.
+  - **1 hop**: ring layout by relationship group. **2 hops**: force-directed layout (`d3-force`), capped at 300 nodes.
+  - Groups over 12 collapse to a clickable **“+N more”** node. Layer chips, hover evidence, click to inspect, double-click to recenter, zoom and pan.
+  - **PNG/SVG export**, shareable URLs, and it follows the dark/light theme.
+  - `GET /api/v1/resources/{id}/topology?hops=1|2`.
+- **Databases** data source: PostgreSQL (per database), MySQL, SQL Server, MongoDB, Redis and Elasticsearch instances discovered from integration metrics,
+  as a new **Database** type (`type:database`, `db_engine:…`), linked to their host. Migration `007_databases.sql` enables it on existing installs.
+
 ## 1.3.0 (2026-11-04)
 
 ### Added: change-history retention controls

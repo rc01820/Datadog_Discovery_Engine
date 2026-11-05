@@ -126,6 +126,17 @@ type, status group, collector, change time and key.
 
 Migrations (`api/app/migrations/NNN_name.sql`) are applied in order, once, in a transaction, under `pg_advisory_lock(424242)`.
 
+## Topology
+
+`GET /api/v1/resources/{id}/topology` reuses `related_items()`, the function behind the Related tab. For one hop it returns the centre plus its related
+resources, with one edge each (relation and evidence). For two hops it re-runs `related_items(structural_only=True)` for up to 60 first-hop
+neighbours (skipping the shared-app correlation, which would just repeat the same group), deduplicates nodes and edges, and caps at 300 nodes.
+
+The browser (`TopologyGraph.tsx`) collapses any parent/relationship group larger than 12 into a “+N more” node, then lays out:
+**1 hop** as a fixed ring with one sector per relationship group, **2 hops** with `d3-force` (link, charge, collide and centring forces, 320 ticks
+computed synchronously, centre pinned). It renders plain SVG with colours resolved from the theme's CSS variables, so the same SVG exports
+to `.svg` or rasterises to `.png` through a canvas.
+
 ## Bulk lookup
 
 `POST /api/v1/bulk-lookup` (`routes/bulk.py`) parses and deduplicates the pasted text, classifies each item (IP, CIDR, instance ID, MAC,

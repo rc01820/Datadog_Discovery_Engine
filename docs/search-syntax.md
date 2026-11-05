@@ -158,6 +158,7 @@ Free text searches aliases as well. When a row matched on an alias, it shows `al
 | `type:cluster` | Kubernetes cluster | `clusters`, `k8s`, `kubernetes` |
 | `type:pod` | Kubernetes pod | `pods` |
 | `type:container` | Container | `containers`, `docker` |
+| `type:database` | Database (PostgreSQL, MySQL, SQL Server, MongoDB, Redis, Elasticsearch) | `databases`, `db`, `dbs` |
 | `type:service` | APM / Service Catalog service | `services`, `apm` |
 | `type:synthetic` | Synthetic test | `synthetics` |
 | `type:dashboard` | Dashboard | `dashboards` |
@@ -247,6 +248,10 @@ type:container image_name:nginx
 type:interface device_name:bos-core-sw01
 type:interface status:down
 mac:00:1a:2b:*
+
+# databases
+type:database db_engine:postgresql
+type:database host:eoc-db-xyz-01         # tag set by the integration
 
 # AWS services
 aws_service:lambda

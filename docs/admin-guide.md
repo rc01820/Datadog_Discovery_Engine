@@ -86,7 +86,7 @@ Create new keys in Datadog, paste them, **Save**, **Test connection**, **Sync no
 ## Data sources & freshness
 
 One row per source: **Hosts, Monitors, Network devices, Device interfaces, Containers/pods/clusters, Services, Synthetic tests,
-Dashboards, AWS services, Tags**. Each row shows:
+Dashboards, AWS services, Databases, Tags**. Each row shows:
 
 - **On** toggle: saved immediately, applied at the next sync. Disabling a source deletes its records at the next sync.
 - The source label, a description, and the **Datadog API** it calls.

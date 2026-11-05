@@ -18,7 +18,7 @@ services:
   web:
     container_name: datadog-search-web
     build: ./web
-    image: datadog-search-web:1.3.0
+    image: datadog-search-web:1.4.0
     ports:
       - "${HTTP_PORT:-8080}:8080"
     depends_on:
@@ -39,7 +39,7 @@ services:
   api:
     container_name: datadog-search-api
     build: ./api
-    image: datadog-search-api:1.3.0
+    image: datadog-search-api:1.4.0
     environment: *api-env
     volumes:
       - ${HISTORY_ARCHIVE_PATH:-history_archive}:/archive
@@ -56,7 +56,7 @@ services:
   worker:
     container_name: datadog-search-worker
     build: ./api                    # same image as api (built once, cached); avoids a registry pull attempt
-    image: datadog-search-api:1.3.0
+    image: datadog-search-api:1.4.0
     command: ["python", "-m", "app.worker"]
     environment: *api-env
     volumes:

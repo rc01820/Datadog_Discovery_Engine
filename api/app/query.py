@@ -43,6 +43,7 @@ TYPE_ALIASES = {
     "cluster": "Cluster", "clusters": "Cluster", "k8s": "Cluster", "kubernetes": "Cluster",
     "pod": "Pod", "pods": "Pod",
     "container": "Container", "containers": "Container", "docker": "Container",
+    "database": "Database", "databases": "Database", "db": "Database", "dbs": "Database",
 }
 STATUS_GROUPS = {"ok": "ok", "up": "ok", "alert": "alert", "alerting": "alert", "critical": "alert", "down": "alert",
                  "warn": "warn", "warning": "warn", "muted": "muted", "unknown": "unknown", "nodata": "unknown", "no data": "unknown"}

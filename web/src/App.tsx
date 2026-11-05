@@ -12,6 +12,7 @@ import Login from "./pages/Login";
 import Reports from "./pages/Reports";
 import SavedSearches from "./pages/SavedSearches";
 import Search from "./pages/Search";
+import Topology from "./pages/Topology";
 import AuditLog from "./pages/admin/AuditLog";
 import DatadogConfig from "./pages/admin/DatadogConfig";
 import Health from "./pages/admin/Health";
@@ -34,6 +35,7 @@ export default function App() {
         <Route index element={<Home />} />
         <Route path="search" element={<Search />} />
         <Route path="bulk" element={<BulkLookup />} />
+        <Route path="topology/:id" element={<Topology />} />
         <Route path="saved" element={<SavedSearches />} />
         <Route path="favorites" element={<Favorites />} />
         <Route path="history" element={<History />} />

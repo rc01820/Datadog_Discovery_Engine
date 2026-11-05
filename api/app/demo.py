@@ -193,6 +193,16 @@ INTERFACES = {
     "nyc-core-sw01": [("Eth1/1", "uplink", "down"), ("Eth1/2", "server-farm", "down")],
 }
 
+DATABASES = [
+    # engine, host, instance (db / port / cluster), tags
+    ("PostgreSQL", "eoc-db-xyz-01", "orders", ["app:xyz", "env:prod", "team:dba"]),
+    ("PostgreSQL", "eoc-db-xyz-01", "customers", ["app:xyz", "env:prod", "team:dba"]),
+    ("PostgreSQL", "bos-db-abc-01", "abc", ["app:abc", "env:prod", "team:dba"]),
+    ("MySQL", "dev-db-01", "", ["env:dev", "team:dba"]),
+    ("Redis", "eoc-vm-db-01", "6379", ["app:xyz", "env:prod"]),
+    ("MongoDB", "lab-vm-01", "", ["env:lab"]),
+]
+
 AWS_RESOURCES = [
     ("Lambda", "xyz-image-resizer", "us-east-1", ["app:xyz", "env:prod"]),
     ("Lambda", "xyz-nightly-report", "us-east-1", ["app:xyz", "env:prod"]),
@@ -259,6 +269,17 @@ def _seed_extended(c, org_id, version, site, rng) -> int:
                 "attributes": {"device_id": f"default:{[d for d in DEVICES if d[0] == dev][0][1]}", "device": dev, "interface": ifname,
                                "index": idx, "mac_address": mac, "description": desc}}, version)
             n += 1
+    for engine, host, inst, tags in DATABASES:
+        slug = engine.lower()
+        name = f"{inst}@{host}" if engine == "PostgreSQL" else (f"{slug}@{host}:{inst}" if inst else f"{slug}@{host}")
+        inventory.upsert(c, org_id, "DEMO", {
+            "type": "Database", "external_id": f"db:{slug}:{host}:{inst}", "name": name,
+            "status": "Warning" if host == "bos-db-abc-01" else "OK", "tags": [*tags, f"db_engine:{slug}"],
+            "aliases": [a for a in (inst, f"{host}:{inst}" if inst else "") if a], "vendor": engine, "model": engine,
+            "last_observed": NOW(),
+            "attributes": {"engine": engine, "host": host, "db" if engine == "PostgreSQL" else "instance": inst or None,
+                           "discovered_via": "database integration metrics (demo)", "inferred_type": True}}, version)
+        n += 1
     for service, rid, region, tags in AWS_RESOURCES:
         svc = service.lower()
         inventory.upsert(c, org_id, "DEMO", {

@@ -8,7 +8,7 @@ Datadog Discovery Engine is a self-hosted Docker application for NOC shifts, inf
 It indexes your Datadog inventory on a schedule, adds a query language built for operations work, and keeps a change
 history that Datadog itself does not keep.
 
-> Project / container name: `datadog-search` · Version 1.3.0 · Default Datadog site: US1 (`datadoghq.com`)
+> Project / container name: `datadog-search` · Version 1.4.0 · Default Datadog site: US1 (`datadoghq.com`)
 
 ---
 
@@ -33,7 +33,8 @@ history that Datadog itself does not keep.
 | Area | What you get |
 |---|---|
 | **Search** | Free text, `field:value`, wildcards, exact match, CIDR ranges, regex, `AND`/`OR`/`NOT`/parentheses, `has:`/`missing:`, autocomplete, sub-30 ms results |
-| **Coverage** | Hosts, VMware, cloud hosts, network devices & interfaces, monitors, containers, pods, clusters, 15 AWS service types, APM services, synthetics, dashboards, tags |
+| **Coverage** | Hosts, VMware, cloud hosts, network devices & interfaces, monitors, containers, pods, clusters, **databases** (PostgreSQL, MySQL, SQL Server, MongoDB, Redis, Elasticsearch), 17 AWS service types, APM services, synthetics, dashboards, tags |
+| **Topology view** | Draws any resource as a graph: monitors, same-app resources, shared IPs, hosts, pods, clusters, interfaces. 1 hop (ring) or 2 hops (force layout), big groups collapse to “+N more”, PNG/SVG export, shareable `/topology/<id>` URLs, an inspector tab and a full page |
 | **Bulk lookup** | Paste up to 2,000 IPs, hostnames, FQDNs, instance IDs, MACs, container IDs or CIDR ranges. You get a found / multiple / not found / previously-seen table, can copy the misses and export CSV |
 | **Aliases** | AWS instance IDs, EC2/RDS DNS names, AWS Name tags, container IDs, MAC addresses and interface descriptions are all searchable |
 | **Correlation** | Monitors scoped to a host, containers on a host, pods in a cluster, interfaces of a device, shared app tags, IP collisions, each shown with evidence |
@@ -76,7 +77,7 @@ Full instructions, including TLS, upgrades and uninstalling: **[docs/installatio
 3. Click **Test connection**, then **Sync now**.
 4. Optionally turn on **Scheduled sync** (every 5–1440 minutes, default 15).
 5. In **Data sources & freshness**, choose which sources to collect: Hosts, Monitors, Network devices, Device
-   interfaces, Containers/pods/clusters, Services, Synthetics, Dashboards, AWS services and Tags. The table shows record counts per
+   interfaces, Containers/pods/clusters, Services, Synthetics, Dashboards, AWS services, Databases and Tags. The table shows record counts per
    resource type, last success and attempt, and any error category for each source.
 
 Supported sites: US1 `datadoghq.com` (default), US3, US5, EU1 `datadoghq.eu`, AP1, AP2 and US1-FED GovCloud `ddog-gov.com`.
@@ -136,8 +137,9 @@ Details on data flow, database schema, the sync pipeline, the query compiler and
   checked against the change history. Results can be filtered by outcome, misses copied, matches opened in Search, and everything exported as CSV.
 - **Search**: scope chips, faceted filters (type, status, environment, tags), type tiles, sortable and paginated results, bulk select and export,
   and URLs you can share (query, filters, sort, page and selection all live in the URL).
+- **Topology**: “View in Topology” in the inspector, or `/topology/<id>`. Click a node to inspect it, double-click to recenter, scroll to zoom, drag to pan. Toggle relation layers and export PNG/SVG.
 - **Resource inspector**: identifiers, IPs, aliases, tags (click to add to search), freshness (demo / cached / inferred), Datadog deep links,
-  quick actions, and tabs for **Monitors**, **Related** (with evidence), **Metrics** (sparklines), **Logs** (last 60 minutes), **History** (timeline) and **Raw**.
+  quick actions, and tabs for **Monitors**, **Related** (with evidence), **Topology**, **Metrics** (sparklines), **Logs** (last 60 minutes), **History** (timeline) and **Raw**.
 - **What Changed**: every change for today, 24 hours, or 7/30/90 days, filterable by kind, type and text, with CSV export.
 - **Reports**: six NOC hygiene reports. Every row links back into search.
 - **Saved Searches** (private or shared, with templates), **Favorites** (resources and queries), **History** (your recent searches).

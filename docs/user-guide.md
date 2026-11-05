@@ -8,6 +8,7 @@ This guide walks through every screen for NOC operators and anyone else who sear
 - [Home](#home)
 - [Search](#search)
 - [The resource inspector](#the-resource-inspector)
+- [Topology](#topology)
 - [Bulk Lookup](#bulk-lookup)
 - [What Changed](#what-changed)
 - [Reports](#reports)
@@ -97,14 +98,49 @@ The right-hand panel for the selected resource:
   - **Overview**: tags (click one to add it to the search), key facts (OS, agent version, aliases (click to copy), IP addresses, environment,
     Datadog ID, organization, created, last seen, content changed), type-specific attributes (image, namespace, cluster, MAC, AWS service,
     region, account, discovered via…) and **Quick Actions**: *Open in Datadog*, *View Host Metrics*, *View Monitors (n)*,
-    *View Logs*, *View Related (n)*, *Refresh live status* (monitors) and *Copy shareable link*.
+    *View Logs*, *View Related (n)*, *View in Topology*, *Refresh live status* (monitors) and *Copy shareable link*.
   - **Monitors**: monitors scoped to this resource, or sharing its `app:`/`service:` tag, each with the evidence.
+  - **Topology**: the resource drawn as a graph (see [Topology](#topology)), with 1/2-hop toggle, PNG export and *Open full page*.
   - **Related**: grouped by relationship (*Runs on host*, *Containers & pods on this host*, *Member of*, *Interfaces*,
     *Same application*, *Shares an IP*…), with evidence. Click an entry to inspect it.
   - **Metrics** (hosts, devices): CPU, memory and load sparklines for the last hour, plus a link to Datadog.
   - **Logs** (hosts, devices, services): the latest 50 log lines from the last 60 minutes, plus a link to the Log Explorer.
   - **History**: this resource's change timeline (see [change-history.md](change-history.md)).
   - **Raw**: the full JSON record.
+
+## Topology
+
+The Topology view draws a resource and everything related to it, using the same relationships (with the same evidence) as the Related tab:
+its **monitors**, resources in the **same app** (`app:`/`service:` tag), anything that **shares an IP** (dashed line), the host it **runs on**,
+**containers, pods and databases** running on it, the **cluster** it belongs to, **interfaces** of a device, and the monitor behind a synthetic.
+
+**Opening it**
+
+- In the inspector, choose the **Topology** tab, or the **View in Topology** quick action. Use *Open full page* for larger graphs.
+- Go directly to `/topology/<resource id>` (add `?hops=2` for two hops). Copy the link to share the exact view.
+
+**Reading it**
+
+| Element | Meaning |
+|---|---|
+| Centre node (accent border, larger) | the selected resource, with its type and first IP |
+| Line colour | relationship group: coral = monitors/synthetics, teal = same app, amber dashed = shares IP, blue = things that run on or belong to it, violet = things it runs on or belongs to |
+| Dot on each node | status: green OK/Up, red alert/down, amber warning, grey muted/unknown |
+| “+N more” node | the group has more than 12 members. Click it to expand the group |
+| Hover | a tooltip with name, type, status, IP and the evidence for the link |
+
+**1 hop or 2 hops**
+
+- **1 hop** uses a ring layout: each relationship group gets its own sector around the centre.
+- **2 hops** also shows neighbours of neighbours (for example host → container → pod → cluster) in a force-directed layout. To keep it readable, it expands
+  the structural relationships of up to 60 first-hop resources (up to 30 each) and caps the graph at 300 nodes. When it trims, the header says *large graph trimmed*.
+
+**Interacting**
+
+- **Click** a node to open it in the inspector (on the full page, the inspector opens beside the graph). **Double-click** to recenter the graph on it.
+- **Scroll** to zoom (in the inspector tab, hold <kbd>Ctrl</kbd>/<kbd>⌘</kbd>), **drag** the background to pan, and use **Fit** to reset.
+- Full page only: **layer chips** show or hide relationship groups, with counts.
+- **PNG** and **SVG** export the current graph. The export uses the current theme's colours, and the graph follows the dark/light theme.
 
 ## Bulk Lookup
 

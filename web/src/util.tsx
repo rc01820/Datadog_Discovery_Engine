@@ -1,11 +1,11 @@
 import {
-  Activity, Box, Boxes, Cloud, Container, EthernetPort, Globe, LayoutDashboard, Layers, Network, Server, Ship, Tag as TagIcon,
+  Activity, Box, Boxes, Cloud, Container, Database, EthernetPort, Globe, LayoutDashboard, Layers, Network, Server, Ship, Tag as TagIcon,
   type LucideIcon,
 } from "lucide-react";
 import type { StatusGroup } from "./api";
 
 export const TYPES = ["Host", "Device", "Interface", "Monitor", "Tag", "Service", "Synthetic", "Dashboard", "VMware", "Cloud",
-  "Cluster", "Pod", "Container"] as const;
+  "Cluster", "Pod", "Container", "Database"] as const;
 /** Types always shown as tiles/scopes; the others appear once inventory of that type exists. */
 export const CORE_TYPES = new Set(["Host", "Device", "Monitor", "Tag", "Service", "Synthetic", "VMware", "Cloud"]);
 
@@ -23,6 +23,7 @@ export const TYPE_META: Record<string, { label: string; plural: string; icon: Lu
   Cluster: { label: "Cluster", plural: "Clusters", icon: Ship, color: "#5eead4" },
   Pod: { label: "Pod", plural: "Pods", icon: Boxes, color: "#2dd4bf" },
   Container: { label: "Container", plural: "Containers", icon: Container, color: "#22d3ee" },
+  Database: { label: "Database", plural: "Databases", icon: Database, color: "#f472b6" },
 };
 
 export const STATUS_LABEL: Record<StatusGroup, string> = {

@@ -16,6 +16,7 @@ const TOC: [string, string][] = [
   ["ips", "Searching IP addresses"],
   ["aliases", "Names & AWS aliases"],
   ["bulk", "Bulk lookup (lists)"],
+  ["topology", "Topology view"],
   ["types-status", "Type & status values"],
   ["presence", "has: and missing:"],
   ["history", "Change history"],
@@ -275,6 +276,13 @@ export default function Help() {
           </ul>
         </Section>
 
+        <Section id="topology" title="Topology view">
+          <p>See how a resource connects to everything else. In the inspector choose <b>Topology</b> (or <i>View in Topology</i>), or open
+            <code>/topology/&lt;id&gt;</code> for the full page. Colours: coral = monitors, teal = same app, amber dashed = shares IP, blue = things running on it,
+            violet = things it runs on or belongs to. Groups over 12 collapse to “+N more”. Switch between <b>1 hop</b> (ring) and <b>2 hops</b> (neighbours of neighbours),
+            click a node to inspect it, double-click to recenter, and export PNG or SVG.</p>
+        </Section>
+
         <Section id="types-status" title="Type & status values">
           <div className="two-col">
             <div>
@@ -294,6 +302,7 @@ export default function Help() {
                   <tr><td><Q>type:cluster</Q></td><td className="muted">Kubernetes clusters (also <code>k8s</code>, <code>kubernetes</code>)</td></tr>
                   <tr><td><Q>type:pod</Q></td><td className="muted">Kubernetes pods</td></tr>
                   <tr><td><Q>type:container</Q></td><td className="muted">containers (also <code>docker</code>)</td></tr>
+                  <tr><td><Q>type:database</Q></td><td className="muted">PostgreSQL, MySQL, SQL Server, MongoDB, Redis and Elasticsearch (also <code>db</code>). Filter with <code>db_engine:postgresql</code></td></tr>
                   <tr><td><Q>type:switch</Q></td><td className="muted">not a type → tag <code>type:switch</code></td></tr>
                 </tbody>
               </table>

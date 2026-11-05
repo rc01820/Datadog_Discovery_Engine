@@ -4,7 +4,7 @@ import random
 import time
 from datetime import datetime, timedelta, timezone
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from .. import datadog, db, inventory, security
 from .search import SUMMARY_COLS, _stale_cutoff, summarize
@@ -52,35 +52,34 @@ INCOMING = {"runs_on": "workloads", "runs_in": "containers", "member_of": "membe
             "backed_by": "synthetic"}
 
 
-@router.get("/{rid}/related")
-def related(rid: int, user: dict = Depends(security.require("inspect"))):
-    """Related entities, each carrying the evidence used to correlate it."""
-    with db.conn() as c:
-        r = _get(c, rid)
-        out: list[dict] = []
-        seen: set[tuple[int, str]] = set()
+def related_items(c, r: dict, cutoff, structural_only: bool = False, limit: int = 500) -> list[dict]:
+    """Resources related to r, each with relation + evidence. structural_only skips shared-app-tag correlation
+    (used for 2nd-hop expansion, where it would just repeat the same application group)."""
+    rid = r["id"]
+    out: list[dict] = []
+    seen: set[tuple[int, str]] = set()
 
-        def add(rows, relation, evidence_fn):
-            for x in rows:
-                key = (x["id"], relation)
-                if x["id"] == rid or key in seen:
-                    continue
-                seen.add(key)
-                out.append({"relation": relation, "evidence": evidence_fn(x), **summarize(x, cutoff)})
+    def add(rows, relation, evidence_fn):
+        for x in rows:
+            key = (x["id"], relation)
+            if x["id"] == rid or key in seen or len(out) >= limit:
+                continue
+            seen.add(key)
+            out.append({"relation": relation, "evidence": evidence_fn(x), **summarize(x, cutoff)})
 
-        cutoff = _stale_cutoff()
-        cols = SUMMARY_COLS
-        add(c.execute(f"""SELECT {cols}, rr.evidence FROM resource_relationships rr JOIN resources r ON r.id=rr.from_id
-                          WHERE rr.to_id=%s AND rr.relation='monitors'""", (rid,)), "monitor", lambda x: x["evidence"])
-        # outgoing: this resource -> parent (monitor scope, runs on host, member of cluster, interface of device...)
-        for x in c.execute(f"""SELECT {cols}, rr.evidence, rr.relation AS rel FROM resource_relationships rr
-                               JOIN resources r ON r.id=rr.to_id WHERE rr.from_id=%s ORDER BY r.type, r.name LIMIT 300""", (rid,)).fetchall():
-            add([x], OUTGOING.get(x["rel"], "scoped_to"), lambda y: y["evidence"])
-        # incoming: children (containers in a pod, pods in a cluster, interfaces of a device, synthetics...)
-        for x in c.execute(f"""SELECT {cols}, rr.evidence, rr.relation AS rel FROM resource_relationships rr
-                               JOIN resources r ON r.id=rr.from_id WHERE rr.to_id=%s AND rr.relation <> 'monitors'
-                               ORDER BY r.type, r.name LIMIT 500""", (rid,)).fetchall():
-            add([x], INCOMING.get(x["rel"], "child"), lambda y: y["evidence"])
+    cols = SUMMARY_COLS
+    add(c.execute(f"""SELECT {cols}, rr.evidence FROM resource_relationships rr JOIN resources r ON r.id=rr.from_id
+                      WHERE rr.to_id=%s AND rr.relation='monitors'""", (rid,)), "monitor", lambda x: x["evidence"])
+    # outgoing: this resource -> parent (monitor scope, runs on host, member of cluster, interface of device...)
+    for x in c.execute(f"""SELECT {cols}, rr.evidence, rr.relation AS rel FROM resource_relationships rr
+                           JOIN resources r ON r.id=rr.to_id WHERE rr.from_id=%s ORDER BY r.type, r.name LIMIT 300""", (rid,)).fetchall():
+        add([x], OUTGOING.get(x["rel"], "scoped_to"), lambda y: y["evidence"])
+    # incoming: children (containers in a pod, pods in a cluster, interfaces of a device, synthetics...)
+    for x in c.execute(f"""SELECT {cols}, rr.evidence, rr.relation AS rel FROM resource_relationships rr
+                           JOIN resources r ON r.id=rr.from_id WHERE rr.to_id=%s AND rr.relation <> 'monitors'
+                           ORDER BY r.type, r.name LIMIT 500""", (rid,)).fetchall():
+        add([x], INCOMING.get(x["rel"], "child"), lambda y: y["evidence"])
+    if not structural_only:
         apps = [t for t in r["tags"] if t.lower().startswith(("app:", "service:"))]
         if r["type"] == "Tag":
             apps = [r["name"]]
@@ -90,11 +89,69 @@ def related(rid: int, user: dict = Depends(security.require("inspect"))):
                                  ORDER BY r.type, r.name LIMIT 100""", (apps, r["org_id"], apps, rid)).fetchall()
             add([x for x in rows if x["type"] == "Monitor"], "monitor", lambda x: "shared tag " + ", ".join(x["shared"] or []))
             add([x for x in rows if x["type"] != "Monitor"], "application", lambda x: "shared tag " + ", ".join(x["shared"] or []))
-        if r["ips"]:
-            add(c.execute(f"""SELECT {cols} FROM resources r WHERE r.org_id=%s AND r.ips && %s AND r.id <> %s LIMIT 50""",
-                          (r["org_id"], r["ips"], rid)), "same_ip",
-                lambda x: "shares IP " + ", ".join(sorted(set(x["ips"]) & set(r["ips"]))) + " (not necessarily the same resource)")
-    return {"related": out}
+    if r["ips"]:
+        add(c.execute(f"""SELECT {cols} FROM resources r WHERE r.org_id=%s AND r.ips && %s AND r.id <> %s AND r.type <> 'Tag' LIMIT 50""",
+                      (r["org_id"], r["ips"], rid)), "same_ip",
+            lambda x: "shares IP " + ", ".join(sorted(set(x["ips"]) & set(r["ips"]))) + " (not necessarily the same resource)")
+    return out
+
+
+@router.get("/{rid}/related")
+def related(rid: int, user: dict = Depends(security.require("inspect"))):
+    """Related entities, each carrying the evidence used to correlate it."""
+    with db.conn() as c:
+        r = _get(c, rid)
+        return {"related": related_items(c, r, _stale_cutoff())}
+
+
+TOPO_MAX_NODES = 300
+TOPO_EXPAND = 60        # first-hop neighbours expanded for a 2-hop graph
+TOPO_PER_NEIGHBOUR = 30
+
+
+def _node(x: dict, hop: int) -> dict:
+    return {"id": x["id"], "type": x["type"], "name": x["name"], "status": x["status"], "status_group": x["status_group"],
+            "ip": (x.get("ips") or [None])[0], "source": x["source"], "deep_link": x["deep_link"], "stale": x.get("stale", False),
+            "hop": hop}
+
+
+@router.get("/{rid}/topology")
+def topology(rid: int, hops: int = Query(1, ge=1, le=2), user: dict = Depends(security.require("inspect"))):
+    """Graph around one resource: nodes + edges (with relation and evidence), 1 or 2 hops."""
+    cutoff = _stale_cutoff()
+    with db.conn() as c:
+        r = _get(c, rid)
+        center = summarize(r, cutoff)
+        nodes: dict[int, dict] = {rid: _node(center, 0)}
+        edges: list[dict] = []
+        pairs: set[frozenset] = set()
+        truncated = False
+
+        def link_(a: int, b: int, rel: str, ev: str) -> None:
+            key = frozenset((a, b))
+            if a != b and key not in pairs:
+                pairs.add(key)
+                edges.append({"source": a, "target": b, "relation": rel, "evidence": ev})
+
+        first = related_items(c, r, cutoff)
+        for x in first:
+            nodes.setdefault(x["id"], _node(x, 1))
+            link_(rid, x["id"], x["relation"], x["evidence"])
+        if hops == 2:
+            # expand structural neighbours first (they have the most informative second hop), then the rest
+            order = sorted(first, key=lambda x: (x["relation"] in ("application", "monitor"), x["relation"]))
+            for x in order[:TOPO_EXPAND]:
+                nr = _get(c, x["id"])
+                for y in related_items(c, nr, cutoff, structural_only=True, limit=TOPO_PER_NEIGHBOUR):
+                    if y["id"] not in nodes:
+                        if len(nodes) >= TOPO_MAX_NODES:
+                            truncated = True
+                            continue
+                        nodes[y["id"]] = _node(y, 2)
+                    link_(x["id"], y["id"], y["relation"], y["evidence"])
+            truncated = truncated or len(first) > TOPO_EXPAND
+    return {"center": rid, "hops": hops, "nodes": list(nodes.values()), "edges": edges, "truncated": truncated,
+            "center_detail": {"name": center["name"], "type": center["type"], "ips": center["ips"], "tags": center["tags"][:12]}}
 
 
 @router.post("/{rid}/refresh")

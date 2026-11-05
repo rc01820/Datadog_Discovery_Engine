@@ -8,7 +8,7 @@ failure in one never affects the others.
 - [Permissions](#permissions)
 - [Hosts](#hosts) · [Monitors](#monitors) · [Network devices](#network-devices) · [Device interfaces](#device-interfaces)
 - [Containers, pods & clusters](#containers-pods--clusters) · [Services](#services) · [Synthetic tests](#synthetic-tests)
-- [Dashboards](#dashboards) · [AWS services](#aws-services) · [Tags](#tags)
+- [Dashboards](#dashboards) · [AWS services](#aws-services) · [Databases](#databases) · [Tags](#tags)
 - [Relationships](#relationships)
 - [Normalised resource model](#normalised-resource-model)
 - [Resilience, rate limits and error categories](#resilience-rate-limits-and-error-categories)
@@ -29,6 +29,7 @@ failure in one never affects the others.
 | `synthetics` | Synthetic tests | Synthetic | `GET /api/v1/synthetics/tests` | 1 |
 | `dashboards` | Dashboards | Dashboard | `GET /api/v1/dashboard` | 1 per 100 dashboards |
 | `aws` | AWS services | Cloud | `GET /api/v1/query` (integration metrics) | 17 (one per AWS service) |
+| `databases` | Databases | Database | `GET /api/v1/query` (database integration metrics) | 6 (one per engine) |
 | `tags` | Tags (derived) | Tag | none: derived from all records | 0 |
 
 The **Data sources & freshness** table shows, for each source: whether it's enabled, the record count per resource type, the last
@@ -50,7 +51,7 @@ for the sources you enable. Scope names vary by Datadog release, so check them i
 | services | `apm_service_catalog_read` |
 | synthetics | `synthetics_read` |
 | dashboards | `dashboards_read` |
-| aws | `timeseries_query` (metrics query) |
+| aws, databases | `timeseries_query` (metrics query) |
 | Inspector › Metrics tab (live) | `timeseries_query` |
 | Inspector › Logs tab (live) | `logs_read_data` |
 
@@ -194,6 +195,25 @@ To add a service, add a row to `AWS_METRICS` in `api/app/datadog.py`.
 **Coverage depends on which AWS namespaces your Datadog AWS integration collects.** If a service isn't enabled in the integration, it
 won't appear here. EC2 instances come from the **Hosts** source.
 
+## Databases
+
+Database instances are discovered from **database integration metrics reported in the last 4 hours** (the same technique as AWS services):
+
+| Engine | Metric | Grouped by | Resource name |
+|---|---|---|---|
+| PostgreSQL | `postgresql.connections` | `host`, `db` | `<db>@<host>` (one per logical database) |
+| MySQL | `mysql.net.connections` | `host` | `mysql@<host>` |
+| SQL Server | `sqlserver.stats.connections` | `host` | `sqlserver@<host>` |
+| MongoDB | `mongodb.connections.current` | `host` | `mongodb@<host>` |
+| Redis | `redis.net.clients` | `host`, `redis_port` | `redis@<host>:<port>` |
+| Elasticsearch | `elasticsearch.number_of_nodes` | `host`, `cluster_name` | `elasticsearch@<host>:<cluster>` |
+
+Each becomes a **Database** resource with vendor/model = engine, the tag `db_engine:<engine>`, the series tags, aliases (the db name or port and
+`<host>:<instance>`), and a link to its host (`runs_on`), so the host's **Related** and **Topology** show the databases running on it.
+They disappear at the next sync once they stop reporting for 4 hours. Search them with `type:database`, `db_engine:postgresql` or `vendor:redis`.
+To add an engine (e.g. Oracle or Cassandra), add a row to `DB_METRICS` in `api/app/datadog.py` with a metric your integration reports.
+Managed databases on AWS (RDS) also appear through the **AWS services** source.
+
 ## Tags
 
 Derived after every sync. Each distinct tag across Datadog records becomes a **Tag** entity with its resource count and resource types,
@@ -209,11 +229,13 @@ Stored in `resource_relationships` and recomputed after every sync (only added a
 | Relation | From → To | Evidence |
 |---|---|---|
 | `monitors` | Monitor → Host/Device | `host:` / `device_name:` in the monitor query or tags |
-| `runs_on` | Container/Pod → Host | container `host` attribute = host name |
+| `runs_on` | Container/Pod/Database → Host | `host` attribute = host name |
 | `runs_in` | Container → Pod | same cluster/namespace/pod |
 | `member_of` | Pod → Cluster; Host → Cluster | pod's cluster; node `kube_cluster_name`/`kube_cluster` tag |
 | `interface_of` | Interface → Device | interface's device ID |
 | `backed_by` | Synthetic → Monitor | test `monitor_id` |
+
+All of these, plus the query-time ones below, are what the **Topology** view draws.
 
 These are computed at query time:
 

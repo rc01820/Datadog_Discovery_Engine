@@ -10,7 +10,7 @@ from psycopg.types.json import Jsonb
 from .query import build_search_blob
 
 TYPES = ["Host", "Device", "Interface", "Monitor", "Tag", "Service", "Synthetic", "Dashboard", "VMware", "Cloud",
-         "Cluster", "Pod", "Container"]
+         "Cluster", "Pod", "Container", "Database"]
 UNTRACKED_TYPES = {"Tag"}
 # Short-lived resources: their history can have a shorter retention and can be switched off entirely.
 EPHEMERAL_TYPES = {"Container", "Pod"}
@@ -313,9 +313,9 @@ def rebuild_relationships(c, org_id: int) -> None:
     _link_by_attr(c, org_id, "Interface", "device_id", "Device", "interface_of", "interface of device")
     # containers -> host (by hostname), hosts -> cluster (by kube cluster tag)
     c.execute("""INSERT INTO _rel_new (from_id, to_id, relation, evidence)
-                 SELECT ct.id, h.id, 'runs_on', 'container host ' || h.name FROM resources ct
+                 SELECT ct.id, h.id, 'runs_on', lower(ct.type) || ' runs on ' || h.name FROM resources ct
                  JOIN resources h ON h.org_id=ct.org_id AND h.type IN ('Host','VMware','Cloud') AND lower(h.name)=lower(ct.attributes->>'host')
-                 WHERE ct.org_id=%s AND ct.type IN ('Container','Pod') ON CONFLICT DO NOTHING""", (org_id,))
+                 WHERE ct.org_id=%s AND ct.type IN ('Container','Pod','Database') ON CONFLICT DO NOTHING""", (org_id,))
     c.execute("""INSERT INTO _rel_new (from_id, to_id, relation, evidence)
                  SELECT h.id, cl.id, 'member_of', 'node tag ' || t FROM resources h, unnest(h.tags) t
                  JOIN resources cl ON cl.type='Cluster' AND lower(cl.name) = lower(split_part(t, ':', 2))

@@ -196,7 +196,7 @@ To roll back, restore the backup taken before the upgrade and start the previous
 ```bash
 docker compose down            # stop and remove containers; keeps data volumes
 docker compose down -v         # ALSO deletes the database, redis and history-archive volumes (irreversible)
-docker image rm datadog-search-web:1.3.0 datadog-search-api:1.3.0
+docker image rm datadog-search-web:1.4.0 datadog-search-api:1.4.0
 ```
 
 ## Installation troubleshooting

@@ -151,6 +151,17 @@ export const RECIPES: RecipeGroup[] = [
     ],
   },
   {
+    id: "databases",
+    title: "Databases",
+    recipes: [
+      { want: "List every database", q: "type:database" },
+      { want: "List PostgreSQL databases", q: "type:database db_engine:postgresql" },
+      { want: "Find Redis instances", q: "type:database vendor:redis" },
+      { want: "Find databases for app xyz", q: "type:database app:xyz" },
+      { want: "Find databases that are not OK", q: "type:database -status:ok" },
+    ],
+  },
+  {
     id: "aws-services",
     title: "AWS services",
     recipes: [

@@ -7,7 +7,7 @@
 | Backend | Python 3.12, FastAPI, uvicorn, psycopg 3 (pool), redis-py, httpx, argon2-cffi, cryptography |
 | Database | PostgreSQL 16 + `pg_trgm` |
 | Cache / queue | Redis 7 |
-| Frontend | React 19, TypeScript (strict), Vite, react-router 7, lucide-react. No CSS framework |
+| Frontend | React 19, TypeScript (strict), Vite, react-router 7, lucide-react, d3-force (topology layout). No CSS framework |
 | Packaging | Docker multi-stage builds, Docker Compose |
 
 ## Running locally
@@ -68,7 +68,7 @@ cd api && ../.venv/bin/python -m pytest -q tests
 | `web/src/context.tsx` | user, status, permissions, toasts, theme |
 | `web/src/util.tsx` | type metadata (icons, colours), status pills, time formatting |
 | `web/src/pages/*` | screens (`BulkLookup.tsx`: paste/file input, results table, filters, CSV download).  `helpRecipes.ts` holds the Help examples |
-| `web/src/components/*` | layout, search bar, inspector, mesh animation, modal, sparkline |
+| `web/src/components/*` | layout, search bar, inspector, **TopologyGraph** (ring/force layouts, collapse, pan/zoom, PNG/SVG export), mesh animation, modal, sparkline |
 
 ## How to add a Datadog data source
 
