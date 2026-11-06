@@ -1,6 +1,6 @@
 # Tag Enforcer integration
 
-[Tag Enforcer](../../Datadog_Tag_Enforcer/README.md) decides whether each resource is tagged the way your tag policy says.
+[Tag Enforcer](https://github.com/rc01820/Datadog_Tag_Enforcer) decides whether each resource is tagged the way your tag policy says.
 Discovery knows how each resource connects to monitors, hosts and clusters, and how it has changed. With the integration on,
 Discovery imports Tag Enforcer's verdicts and shows them alongside everything else it knows. The two together find
 **monitor blind spots**: monitors that are not watching a resource only because one of its tags is spelled differently.
