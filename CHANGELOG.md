@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Changed
+- `compose.yaml` maps `host.docker.internal` on the api and worker services, so `TAG_ENFORCER_URL=http://host.docker.internal:<port>`
+  reaches a Tag Enforcer on the same machine on Linux as well as Docker Desktop.
+- Tag Enforcer connection documented end to end: settings for both apps, same-machine, shared-network and separate-host setups,
+  a connection check, turning it off, and troubleshooting ([docs/tag-enforcer.md](docs/tag-enforcer.md)). `.env.example`,
+  installation, configuration, admin, user, architecture and operations docs updated.
+
 ## 1.5.0 (2026-11-05)
 
 ### Added: Tag Enforcer integration ([docs/tag-enforcer.md](docs/tag-enforcer.md))

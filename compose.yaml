@@ -45,6 +45,9 @@ services:
     build: ./api
     image: datadog-search-api:1.5.0
     environment: *api-env
+    # Lets TAG_ENFORCER_URL=http://host.docker.internal:<port> reach a Tag Enforcer
+    # running on the same machine (built in on Docker Desktop; needed on Linux).
+    extra_hosts: ["host.docker.internal:host-gateway"]
     volumes:
       - ${HISTORY_ARCHIVE_PATH:-history_archive}:/archive
     depends_on:
@@ -63,6 +66,7 @@ services:
     image: datadog-search-api:1.5.0
     command: ["python", "-m", "app.worker"]
     environment: *api-env
+    extra_hosts: ["host.docker.internal:host-gateway"]
     volumes:
       - ${HISTORY_ARCHIVE_PATH:-history_archive}:/archive
     depends_on:
