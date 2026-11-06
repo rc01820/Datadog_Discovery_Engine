@@ -4,9 +4,12 @@ import { useApp } from "../context";
 import { TYPE_META } from "../util";
 
 /* ------------------------------------------------------------------ types */
-export interface TopoNode { id: number; type: string; name: string; status: string; status_group: string; ip: string | null; source: string; deep_link: string; stale: boolean; hop: number }
+export interface TopoNode { id: number; type: string; name: string; status: string; status_group: string; ip: string | null; source: string; deep_link: string; stale: boolean; hop: number; tag_compliant?: boolean; blind_spots?: number }
 export interface TopoEdge { source: number; target: number; relation: string; evidence: string }
 export interface TopoData { center: number; hops: number; nodes: TopoNode[]; edges: TopoEdge[]; truncated: boolean; center_detail: { name: string; type: string; ips: string[]; tags: string[] } }
+
+/** Outline for resources that fail Tag Enforcer's policy (solid when a monitor misses them because of it). */
+export const POLICY_COLOR = "#f97316";
 
 export interface TopologyHandle { exportSvg: () => void; exportPng: () => void; fit: () => void }
 
@@ -270,7 +273,11 @@ const TopologyGraph = forwardRef<TopologyHandle, Props>(function TopologyGraph({
           return (
             <g key={n.key} data-node transform={`translate(${n.x} ${n.y})`} style={{ cursor: "pointer" }}
               onClick={() => onSelect?.(node.id)} onDoubleClick={() => onRecenter?.(node.id)}>
-              <title>{`${node.name}\n${node.type} · ${node.status}${node.ip ? ` · ${node.ip}` : ""}${n.evidence ? `\n${info.label}: ${n.evidence}` : ""}\nClick to inspect · double-click to recenter`}</title>
+              <title>{`${node.name}\n${node.type} · ${node.status}${node.ip ? ` · ${node.ip}` : ""}${node.tag_compliant === false ? `\nFails tag policy${node.blind_spots ? ` · missed by ${node.blind_spots} monitor(s)` : ""}` : ""}${n.evidence ? `\n${info.label}: ${n.evidence}` : ""}\nClick to inspect · double-click to recenter`}</title>
+              {node.tag_compliant === false && (
+                <rect x={-w / 2 - 4} y={-h / 2 - 4} width={w + 8} height={h + 8} rx={11} fill="none"
+                  stroke={POLICY_COLOR} strokeWidth={1.6} strokeDasharray={node.blind_spots ? undefined : "3 3"} data-policy="fail" />
+              )}
               <rect x={-w / 2} y={-h / 2} width={w} height={h} rx={8} fill={palette.bg}
                 stroke={center ? palette.accent : isSel ? palette.text : info.color} strokeWidth={center || isSel ? 2.2 : 1.1}
                 strokeOpacity={n.hop === 2 && !isSel ? 0.7 : 1} />

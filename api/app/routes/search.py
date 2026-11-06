@@ -156,7 +156,13 @@ FIELD_HELP = [
     ("os:", "Operating system"),
     ("alias:", "Host alias: AWS instance ID, EC2/RDS DNS name or Name tag (e.g. alias:i-0abc*)"), ("regex:", "Regular expression, e.g. regex:name:^eoc-.*"),
     ("has:", "Field or tag key is present, e.g. has:ip"), ("missing:", "Field or tag key is absent, e.g. missing:env"),
+    ("compliant:", "Tag Enforcer verdict: yes or no"), ("tagissue:", "Tag policy problem, e.g. tagissue:missing_required:service"),
+    ("fixable:", "Tag Enforcer can rewrite this host's tags: yes or no"),
+    ("blindspot:", "A monitor misses this resource because of a tag spelling: yes"),
 ]
+TAG_ISSUES = ["missing_required", "missing_recommended", "forbidden", "invalid_value", "alias_remap", "not_normalized",
+              "fragmentation", "empty_value", "no_tags", "invalid_key", "reserved_key", "over_length", "ust_incomplete",
+              "duplicate_key", "bare_tag", "undefined_key"]
 
 
 @router.get("/suggest")
@@ -195,8 +201,15 @@ def suggest(prefix: str = Query("", max_length=200), user: dict = Depends(securi
             for r in c.execute(f"SELECT DISTINCT {col} AS v FROM resources WHERE {col} <> '' AND lower({col}) LIKE %s ESCAPE '\\' AND type <> 'Tag' ORDER BY 1 LIMIT 10", (like,)):
                 v = r["v"]
                 out.append({"value": f'{field}:"{v}"' if " " in v else f"{field}:{v}", "label": v, "hint": field, "kind": "value"})
+        elif field in ("compliant", "fixable", "blindspot"):
+            out += [{"value": f"{field}:{o}", "label": o, "hint": field, "kind": "value"} for o in ("yes", "no") if o.startswith(val)]
+        elif field == "tagissue":
+            known = {r["v"] for r in c.execute(
+                "SELECT DISTINCT i AS v FROM tag_compliance, unnest(issues) i WHERE i LIKE %s ESCAPE '\\' ORDER BY 1 LIMIT 20", (like,))}
+            opts = sorted({o for o in TAG_ISSUES if o.startswith(val)} | known)[:20]
+            out += [{"value": f"tagissue:{o}", "label": o, "hint": "tag policy", "kind": "value"} for o in opts]
         elif field in ("has", "missing"):
-            opts = ["ip", "alias", "os", "env", "vendor", "agent", "tags", "app", "costcenter", "team"]
+            opts = ["ip", "alias", "os", "env", "vendor", "agent", "tags", "tagpolicy", "app", "costcenter", "team"]
             out += [{"value": f"{field}:{o}", "label": o, "hint": field, "kind": "value"} for o in opts if o.startswith(val)]
     if neg:
         for s in out:

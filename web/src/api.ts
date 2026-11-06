@@ -47,6 +47,7 @@ export interface ResourceDetail extends Resource {
   freshness: { mode: string; label: string; last_indexed: string; last_observed: string | null; inferred_type: boolean };
   links: Record<string, string>;
   scope_monitor_count: number;
+  tag_policy: TagPolicy;
 }
 
 export interface Related extends Resource {
@@ -163,4 +164,26 @@ export function download(path: string, params: Params) {
   document.body.appendChild(a);
   a.click();
   a.remove();
+}
+
+export interface PolicyFinding {
+  severity: "error" | "warning" | "info"; category: string; tier: string; tag_key: string; tag_value: string;
+  suggestion: string; auto_fixable: boolean; message: string; waived: boolean;
+}
+export interface BlindSpot { monitor_id: number; monitor_name: string; expected_tag: string; actual_tag: string; evidence: string }
+/** Tag Enforcer's verdict for one resource (absent fields when not evaluated). */
+export interface TagPolicy {
+  available: boolean;
+  evaluated: boolean;
+  imported_at?: string | null;
+  te_scan_id?: number;
+  compliant?: boolean;
+  error_count?: number;
+  warning_count?: number;
+  remediable?: boolean;
+  teams?: string[];
+  issues?: string[];
+  findings?: PolicyFinding[];
+  blind_spots?: BlindSpot[];
+  link?: string;
 }

@@ -176,6 +176,19 @@ export const RECIPES: RecipeGroup[] = [
     ],
   },
   {
+    id: "tag-policy",
+    title: "Tag policy (Tag Enforcer integration)",
+    recipes: [
+      { want: "Everything failing the tag policy", q: "compliant:no", note: "Needs TAG_ENFORCER_URL and TAG_ENFORCER_TOKEN. Resources Tag Enforcer doesn't evaluate never match." },
+      { want: "Production hosts failing the tag policy", q: "type:host env:prod compliant:no" },
+      { want: "Resources a monitor misses because a tag is misspelled", q: "blindspot:yes", note: "See Reports › Monitor blind spots for which monitor and which tag." },
+      { want: "Anything missing the required service tag", q: "tagissue:missing_required:service" },
+      { want: "Anything carrying a forbidden tag (PII, secrets, retired schemes)", q: "tagissue:forbidden" },
+      { want: "Hosts Tag Enforcer can fix automatically", q: "type:host fixable:yes" },
+      { want: "Hosts Tag Enforcer hasn't evaluated", q: "type:host missing:tagpolicy" },
+    ],
+  },
+  {
     id: "combined",
     title: "Combined & advanced",
     recipes: [

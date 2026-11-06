@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi.responses import FileResponse, Response
 from pydantic import BaseModel, Field
 
-from .. import VERSION, datadog, db, demo, history, security, sync
+from .. import VERSION, datadog, db, demo, history, security, sync, tagenforcer
 
 router = APIRouter(prefix="/api/v1", tags=["admin"])
 ROLES = ("Administrator", "Operator", "Viewer")
@@ -345,7 +345,22 @@ def health(user: dict = Depends(security.require("admin.settings"))):
         out["worker"] = {"ok": False}
     conn = datadog.connection()
     out["datadog"] = {"configured": conn["configured"], "enabled": conn["enabled"], "site": conn["site"]}
+    try:
+        out["tag_enforcer"] = tagenforcer.status()
+    except Exception as e:  # noqa: BLE001
+        out["tag_enforcer"] = {"ok": False, "configured": tagenforcer.configured(), "error": str(e)[:200]}
     return out
+
+
+@router.post("/admin/tag-enforcer/import")
+def tag_enforcer_import(user: dict = Depends(security.require("admin.integrations"))):
+    """Pull Tag Enforcer's latest verdicts now, instead of waiting for the next sync."""
+    if not tagenforcer.configured():
+        raise HTTPException(400, "Tag Enforcer is not configured. Set TAG_ENFORCER_URL and TAG_ENFORCER_TOKEN.")
+    result = tagenforcer.run_import("manual", user["username"])
+    if result["status"] == "failed":
+        raise HTTPException(502, result["message"])
+    return result
 
 
 # ---- change-history retention ----------------------------------------------------------

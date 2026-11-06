@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 
 import redis
 
-from . import db, history, sync
+from . import db, history, sync, tagenforcer
 from .datadog import connection
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(name)s %(message)s")
@@ -68,7 +68,7 @@ def main() -> None:
         for j in c.execute("SELECT id FROM sync_jobs WHERE status='queued' ORDER BY id").fetchall():
             db.rds.rpush("ds:jobs", j["id"])
     log.info("worker started")
-    last_schedule = last_retention = last_demo = 0.0
+    last_schedule = last_retention = last_demo = last_te = 0.0
     while running:
         try:
             db.rds.set("ds:worker_heartbeat", datetime.now(timezone.utc).isoformat(), ex=60)
@@ -79,6 +79,10 @@ def main() -> None:
                 refresh_demo_timestamps(); last_demo = now
             if now - last_retention > 3600:
                 retention(); last_retention = now
+            # Tag Enforcer scans on its own schedule; pick up new scans even when no Datadog sync runs.
+            if tagenforcer.configured() and now - last_te > 900:
+                last_te = now
+                tagenforcer.run_import("schedule")
             item = db.rds.blpop(["ds:jobs"], timeout=5)
             if item:
                 job_id = int(item[1])

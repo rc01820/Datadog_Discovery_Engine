@@ -21,6 +21,9 @@ There are two layers of configuration:
 | `DATADOG_ORG` | `default` | no | api | Initial organization label shown in the header (editable in the UI) |
 | `DATADOG_API_KEY` | empty | no | api, worker | If set together with `DATADOG_APP_KEY`, overrides the keys stored in the UI, and the UI shows them as read-only |
 | `DATADOG_APP_KEY` | empty | no | api, worker | Application key paired with `DATADOG_API_KEY` |
+| `TAG_ENFORCER_URL` | empty | no | api, worker | Tag Enforcer base URL as the containers reach it. With `TAG_ENFORCER_TOKEN`, turns on the [integration](tag-enforcer.md) |
+| `TAG_ENFORCER_TOKEN` | empty | no | api, worker | Tag Enforcer's `TE_API_TOKEN` (`TAG_ENFORCER_TOKEN_FILE` also works) |
+| `TAG_ENFORCER_PUBLIC_URL` | `TAG_ENFORCER_URL` | no | api | Tag Enforcer URL for browser links (*Open in Tag Enforcer*) |
 | `HISTORY_ARCHIVE_PATH` | Docker volume `history_archive` | no | api, worker | Where change-history archives are written (mounted at `/archive`). Set it to a host folder (e.g. `./archive`) to get the files directly on the host. On Linux, the folder must be writable by UID 10001: `mkdir -p ./archive && sudo chown 10001:10001 ./archive` |
 
 Variables set inside `compose.yaml` that you normally don't change:

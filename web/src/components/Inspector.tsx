@@ -1,15 +1,15 @@
 import {
-  Activity, Copy, ExternalLink, FileText, GitBranch, LineChart, Link2, RefreshCw, Share2, Star, X,
+  Activity, Copy, ExternalLink, FileText, GitBranch, LineChart, Link2, RefreshCw, Share2, ShieldCheck, Star, X,
 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import TopologyGraph, { type TopoData, type TopologyHandle } from "./TopologyGraph";
-import { api, type Related, type ResourceDetail } from "../api";
+import { api, type Related, type ResourceDetail, type TagPolicy } from "../api";
 import { useApp } from "../context";
 import { copy, cx, fmtTime, relTime, StatusPill, TypeIcon } from "../util";
 import Sparkline from "./Sparkline";
 
-type Tab = "overview" | "monitors" | "related" | "topology" | "metrics" | "logs" | "history" | "raw";
+type Tab = "overview" | "policy" | "monitors" | "related" | "topology" | "metrics" | "logs" | "history" | "raw";
 
 interface Change { id: number; at: string; change: string; summary: string }
 
@@ -104,6 +104,9 @@ export default function Inspector({ id, onClose, onAddTerm, onSelect, onChanged 
         ))}
       </div>
     )] as [string, React.ReactNode]] : []),
+    ...(r.tag_policy?.evaluated ? [["Tag policy", (
+      <button key="tp" className="linklike" onClick={() => setTab("policy")}><PolicySummary p={r.tag_policy} /></button>
+    )] as [string, React.ReactNode]] : []),
     ["Environment", r.env || "—"],
     [r.type === "Monitor" ? "Monitor ID" : "Datadog ID", String(attrs.datadog_host_id ?? r.external_id)],
     ["Organization", r.org_name],
@@ -139,9 +142,11 @@ export default function Inspector({ id, onClose, onAddTerm, onSelect, onChanged 
       <div className={cx("freshness", `fr-${r.freshness.mode}`)}>{r.freshness.label} · source {r.source}</div>
 
       <div className="tabs" role="tablist">
-        {(["overview", "monitors", "related", "topology", ...(isInfra || r.type === "Service" ? ["metrics", "logs"] : []), "history", "raw"] as Tab[]).map((t) => (
+        {(["overview", ...(r.tag_policy?.available ? ["policy"] : []), "monitors", "related", "topology", ...(isInfra || r.type === "Service" ? ["metrics", "logs"] : []), "history", "raw"] as Tab[]).map((t) => (
           <button key={t} role="tab" aria-selected={tab === t} className={cx(tab === t && "active")} onClick={() => setTab(t)}>
-            {t === "monitors" ? `Monitors${related ? ` (${monitors.length})` : ""}` : t[0].toUpperCase() + t.slice(1)}
+            {t === "monitors" ? `Monitors${related ? ` (${monitors.length})` : ""}`
+              : t === "policy" ? <>Tag policy{r.tag_policy.evaluated && !r.tag_policy.compliant && <span className="tab-dot" aria-label="fails policy" />}</>
+              : t[0].toUpperCase() + t.slice(1)}
           </button>
         ))}
       </div>
@@ -189,6 +194,8 @@ export default function Inspector({ id, onClose, onAddTerm, onSelect, onChanged 
           </div>
         </div>
       )}
+
+      {tab === "policy" && <PolicyTab p={r.tag_policy} type={r.type} onSelect={onSelect} onAddTerm={onAddTerm} />}
 
       {(tab === "monitors" || tab === "related") && (
         <div className="insp-body">
@@ -282,6 +289,96 @@ export default function Inspector({ id, onClose, onAddTerm, onSelect, onChanged 
         </div>
       )}
     </aside>
+  );
+}
+
+function PolicySummary({ p }: { p: TagPolicy }) {
+  if (p.compliant) return <span className="ok-text">Compliant</span>;
+  return (
+    <span className="alert-text">
+      {p.error_count} error{p.error_count === 1 ? "" : "s"}{p.warning_count ? `, ${p.warning_count} warning${p.warning_count === 1 ? "" : "s"}` : ""}
+      {(p.blind_spots?.length ?? 0) > 0 && ` · ${p.blind_spots!.length} monitor blind spot${p.blind_spots!.length === 1 ? "" : "s"}`}
+    </span>
+  );
+}
+
+const SEVERITY_CLASS: Record<string, string> = { error: "alert-text", warning: "warn-text", info: "muted" };
+
+function PolicyTab({ p, type, onSelect, onAddTerm }: { p: TagPolicy; type: string; onSelect: (id: number) => void; onAddTerm: (t: string) => void }) {
+  if (!p.evaluated) {
+    return (
+      <div className="insp-body">
+        <p className="muted">
+          {["Host", "VMware", "Cloud", "Monitor", "Synthetic", "Dashboard", "Service"].includes(type)
+            ? "Tag Enforcer's latest scan doesn't include this resource. It may be newer than that scan, or its type may be excluded by TE_RESOURCE_TYPES."
+            : `Tag Enforcer doesn't evaluate ${type.toLowerCase()} resources.`}
+        </p>
+        {p.imported_at && <p className="muted small">Verdicts last imported {relTime(p.imported_at)}.</p>}
+      </div>
+    );
+  }
+  const active = (p.findings ?? []).filter((f) => !f.waived);
+  const waived = (p.findings ?? []).filter((f) => f.waived);
+  const order = { error: 0, warning: 1, info: 2 } as Record<string, number>;
+  active.sort((a, b) => (order[a.severity] ?? 3) - (order[b.severity] ?? 3));
+  return (
+    <div className="insp-body">
+      <div className="row gap policy-head">
+        <ShieldCheck size={20} className={p.compliant ? "ok-text" : "alert-text"} />
+        <strong><PolicySummary p={p} /></strong>
+        <span className="grow" />
+        {p.link && <a className="small" href={p.link} target="_blank" rel="noopener noreferrer">Open in Tag Enforcer ↗</a>}
+      </div>
+      <div className="muted small">
+        Tag Enforcer scan #{p.te_scan_id}{p.imported_at && <> · imported {relTime(p.imported_at)}</>}
+        {(p.teams ?? []).length > 0 && <> · owner {p.teams!.join(", ")}</>}
+        {p.remediable && <> · <span className="badge">auto-fixable</span></>}
+      </div>
+
+      {(p.blind_spots ?? []).length > 0 && (
+        <>
+          <h3 className="alert-text">Monitors not watching this resource</h3>
+          <p className="muted small">
+            These monitors are scoped to the policy's spelling of a tag. This resource uses a different spelling, so they
+            don't cover it. Fixing the tag brings it into scope.
+          </p>
+          <ul className="rel-list">
+            {p.blind_spots!.map((b) => (
+              <li key={b.monitor_id}>
+                <button className="rel-item" onClick={() => onSelect(b.monitor_id)}>
+                  <Activity size={16} />
+                  <span className="rel-name">{b.monitor_name}</span>
+                </button>
+                <div className="small evidence">
+                  has <code>{b.actual_tag}</code> → monitor expects <code>{b.expected_tag}</code>
+                </div>
+              </li>
+            ))}
+          </ul>
+        </>
+      )}
+
+      <h3>Findings ({active.length})</h3>
+      {!active.length && <p className="muted small">No active findings.</p>}
+      <ul className="policy-findings">
+        {active.map((f, i) => (
+          <li key={i}>
+            <div>
+              <span className={cx("small", SEVERITY_CLASS[f.severity])}>{f.severity}</span>{" "}
+              <button className="linklike mono small" title="Find every resource with this problem"
+                onClick={() => onAddTerm(`tagissue:${f.category}${f.tag_key ? `:${f.tag_key.toLowerCase()}` : ""}`)}>
+                {f.category}{f.tag_key ? `:${f.tag_key}` : ""}
+              </button>
+              {f.tag_value && <> <code>{f.tag_key}:{f.tag_value}</code></>}
+              {f.suggestion && <> → <code>{f.suggestion}</code></>}
+              {f.auto_fixable && <span className="badge">auto-fix</span>}
+            </div>
+            {f.message && <div className="muted small">{f.message}</div>}
+          </li>
+        ))}
+      </ul>
+      {waived.length > 0 && <p className="muted small">{waived.length} more finding{waived.length === 1 ? " is" : "s are"} covered by a Tag Enforcer waiver.</p>}
+    </div>
   );
 }
 
