@@ -99,6 +99,11 @@ The right-hand panel for the selected resource:
     Datadog ID, organization, created, last seen, content changed), type-specific attributes (image, namespace, cluster, MAC, AWS service,
     region, account, discovered via…) and **Quick Actions**: *Open in Datadog*, *View Host Metrics*, *View Monitors (n)*,
     *View Logs*, *View Related (n)*, *View in Topology*, *Refresh live status* (monitors) and *Copy shareable link*.
+  - **Tag policy** (when the [Tag Enforcer integration](tag-enforcer.md) is on): Tag Enforcer's verdict, the owning team, every finding
+    with the policy's suggested fix and an *auto-fixable* badge, and **Monitors not watching this resource**: monitors that would
+    cover it if a tag were spelled as the policy says. A red dot on the tab means the resource fails the policy. Click a finding to
+    search for every resource with the same problem; *Open in Tag Enforcer* goes to the resource there. Overview also gets a
+    *Tag policy* row.
   - **Monitors**: monitors scoped to this resource, or sharing its `app:`/`service:` tag, each with the evidence.
   - **Topology**: the resource drawn as a graph (see [Topology](#topology)), with 1/2-hop toggle, PNG export and *Open full page*.
   - **Related**: grouped by relationship (*Runs on host*, *Containers & pods on this host*, *Member of*, *Interfaces*,
@@ -127,6 +132,7 @@ its **monitors**, resources in the **same app** (`app:`/`service:` tag), anythin
 | Line colour | relationship group: coral = monitors/synthetics, teal = same app, amber dashed = shares IP, blue = things that run on or belong to it, violet = things it runs on or belongs to |
 | Dot on each node | status: green OK/Up, red alert/down, amber warning, grey muted/unknown |
 | “+N more” node | the group has more than 12 members. Click it to expand the group |
+| Orange outline | (Tag Enforcer) the resource fails the tag policy. **Solid**: at least one monitor misses it because of a tag spelling; **dashed**: fails, but no monitor is affected. The full page shows a *Fails tag policy (n)* chip |
 | Hover | a tooltip with name, type, status, IP and the evidence for the link |
 
 **1 hop or 2 hops**
@@ -198,16 +204,17 @@ Removed resources are struck through, and live ones link to the inspector. **CSV
 
 ## Reports
 
-Six hygiene reports, each with a count card. Click a row to open it in Search.
+Seven hygiene reports, each with a count card. Click a row to open it in Search.
 
 | Report | Shows |
 |---|---|
 | Alerting & warning resources | everything in Alert or Warn, worst first |
 | Duplicate IP addresses | IPs on more than one resource (investigate NAT, re-use or stale records) |
-| Missing required tags | infrastructure missing any of the required keys (Admin › Settings) |
+| Missing required tags | infrastructure missing any of the required keys (Admin › Settings). With Tag Enforcer connected: every resource missing a key its policy requires for that type |
 | Stale inventory | infrastructure not observed within the stale threshold |
 | Infrastructure without monitor coverage | no monitor scoped to it by name, and no monitor sharing its `app:` tag |
 | Agent versions | agent version distribution. Versions older than the most common major are flagged |
+| Monitor blind spots | (Tag Enforcer) one row per resource and monitor: the tag the resource has, the tag the policy and monitor expect, and the monitor that misses it |
 
 ## Saved Searches
 

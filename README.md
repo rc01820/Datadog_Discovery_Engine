@@ -17,6 +17,7 @@ history that Datadog itself does not keep.
 - [Highlights](#highlights)
 - [Quick start (5 minutes)](#quick-start-5-minutes)
 - [Connecting Datadog](#connecting-datadog)
+- [Connecting Tag Enforcer (optional)](#connecting-tag-enforcer-optional)
 - [Search in 60 seconds](#search-in-60-seconds)
 - [Architecture at a glance](#architecture-at-a-glance)
 - [Feature tour](#feature-tour)
@@ -83,6 +84,21 @@ Full instructions, including TLS, upgrades and uninstalling: **[docs/installatio
 
 Supported sites: US1 `datadoghq.com` (default), US3, US5, EU1 `datadoghq.eu`, AP1, AP2 and US1-FED GovCloud `ddog-gov.com`.
 Keys can also be supplied through `DATADOG_API_KEY` / `DATADOG_APP_KEY` in `.env`, in which case the UI shows them as managed by the environment.
+
+### Connecting Tag Enforcer (optional)
+
+If you run [Tag Enforcer](https://github.com/rc01820/Datadog_Tag_Enforcer), set `TAG_ENFORCER_URL`, `TAG_ENFORCER_TOKEN` and
+`TAG_ENFORCER_PUBLIC_URL` in `.env` (see the comments in `.env.example`) and run `docker compose up -d`. On the same machine,
+run Tag Enforcer on another port (e.g. `TE_HTTP_PORT=8087`) and use:
+
+```bash
+TAG_ENFORCER_URL=http://host.docker.internal:8087     # as the containers reach it
+TAG_ENFORCER_TOKEN=<Tag Enforcer's TE_API_TOKEN>
+TAG_ENFORCER_PUBLIC_URL=http://localhost:8087         # as your browser reaches it
+```
+
+Then **Admin › System Health › Import now**. Full guide, other topologies and troubleshooting:
+**[docs/tag-enforcer.md](docs/tag-enforcer.md)**.
 
 ## Search in 60 seconds
 

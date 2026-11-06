@@ -145,6 +145,7 @@ Change history has its own retention settings (see [change-history.md › Retent
 | Redis | version, sync queue depth |
 | Sync worker | heartbeat (sent every 5 s, expires after 60 s), next scheduled sync |
 | Datadog connection | configured, enabled, site |
+| Tag Enforcer | shown when the [integration](tag-enforcer.md) is configured: address, last import attempt and result, Tag Enforcer scan imported, resources evaluated and failing the policy, unmatched counts by type, resources with blind spots, and **Import now** |
 
 For external monitoring use `GET /healthz` (process up) and `GET /readyz` (database and Redis reachable).
 See [operations.md](operations.md#monitoring-the-app).
@@ -159,3 +160,5 @@ See [operations.md](operations.md#monitoring-the-app).
 - [ ] On large Kubernetes estates, keep **container and pod change history** short (default 14 days) or turn it off ([operations.md › Capacity planning](operations.md#capacity-planning)).
 - [ ] Schedule `./scripts/backup.sh` (e.g. a nightly cron job), and test a restore.
 - [ ] Watch `/readyz` and the worker heartbeat from your monitoring (Datadog itself works).
+- [ ] Optional: connect [Tag Enforcer](tag-enforcer.md#connecting-the-two-apps) for tag-policy verdicts and monitor blind spots,
+      and check its card on System Health after the first import.

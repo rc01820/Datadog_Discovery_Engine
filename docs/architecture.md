@@ -35,6 +35,7 @@ worker loop (every ≤5 s)
   ├─ heartbeat → redis ds:worker_heartbeat (TTL 60 s)
   ├─ every 30 s: schedule_due()   → if enabled and interval elapsed → sync.enqueue("schedule")
   ├─ every 60 s: refresh DEMO last_observed
+  ├─ every 15 min (if configured): tagenforcer.run_import("schedule")  → see "Tag Enforcer import" below
   ├─ every 1 h:  retention()      → audit, search log, sessions, old jobs, orphaned jobs
   │                                  + history.purge("schedule"): change history roll-off (containers/pods vs rest, 0 = forever),
   │                                    archived to /archive/*.csv.gz first when enabled, deleted in 20k batches
@@ -82,6 +83,24 @@ A sync only writes what changed:
 On the reference instance, a sync with no changes writes **0 rows** and about 25 kB of WAL (against about 500 kB before). At 500k resources
 that's the difference between a few MB and several GB of WAL per sync. `last_indexed` (“Content changed” in the inspector) now means “the last time the record's content changed”.
 
+## Tag Enforcer import
+
+Optional; on when `TAG_ENFORCER_URL` and `TAG_ENFORCER_TOKEN` are set ([tag-enforcer.md](tag-enforcer.md)).
+
+```
+trigger: end of every sync · worker every 15 min · POST /admin/tag-enforcer/import
+  ├─ Redis lock ds:te_import_lock (one import at a time)
+  ├─ GET {TAG_ENFORCER_URL}/api/compliance/resources?offset=&limit=2000   (X-TE-Token), following next_offset
+  ├─ match: hosts by lower(name) then aliases (Host/VMware/Cloud); monitor/synthetic/dashboard/service by Datadog ID; DEMO excluded
+  ├─ blind spots (tagpolicy.py, pure): parse each monitor's {…} scopes; for every alias_remap / not_normalized / fragmentation
+  │    finding, a monitor is a blind spot if it misses the resource now and covers it once the suggested tag replaces the misspelled one
+  ├─ one transaction: DELETE this org's tag_compliance rows, INSERT the new ones
+  └─ tag_enforcer_imports row, audit event tag_enforcer.import, bump the search-cache data version
+```
+
+A failed import leaves the previous rows untouched and never fails the sync that triggered it. Search fields `compliant:`,
+`tagissue:`, `fixable:`, `blindspot:` and `has:tagpolicy` compile to `EXISTS (SELECT 1 FROM tag_compliance tc WHERE tc.resource_id = r.id …)`.
+
 ## Query compiler
 
 `api/app/query.py`:
@@ -120,6 +139,8 @@ The response is cached in Redis for 30 s under a hash of (data version, all para
 | `sync_jobs`, `sync_errors` | job history and per-source errors | `status`, `counts`, `category`, `message` |
 | `source_status` | per-source freshness | `last_success`, `last_attempt`, `last_error`, `category`, `record_count` |
 | `app_settings` | in-app settings | `key`, `value` (JSONB) |
+| `tag_compliance` | Tag Enforcer verdict per resource (integration) | `resource_id` (PK, FK), `te_scan_id`, `te_type`/`te_id`, `compliant`, `error_count`, `warning_count`, `remediable`, `teams[]`, `issues[]` (`category:key`), `findings`/`blind_spots` (JSONB), `te_path` |
+| `tag_enforcer_imports` | one row per import attempt | `trigger`, `status`, `te_scan_id`, `received`, `matched`, `unmatched` (JSONB), `blind_spots`, `message` |
 
 Indexes: trigram GIN on `lower(name)`, `search_blob` and `resource_changes.name`; GIN on `tags`, `ips` and `aliases`; B-tree on
 type, status group, collector, change time and key.

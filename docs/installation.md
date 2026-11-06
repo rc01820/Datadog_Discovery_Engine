@@ -121,6 +121,14 @@ See [admin-guide.md › Datadog configuration](admin-guide.md#datadog-configurat
 
 After the first successful sync with real data, the DEMO records are removed automatically. You can change this in **Admin › Settings**.
 
+## 6. Optional: connect Tag Enforcer
+
+If you also run [Tag Enforcer](https://github.com/rc01820/Datadog_Tag_Enforcer), Discovery can import its tag-policy verdicts
+and show **monitor blind spots**. It needs three lines in `.env` (`TAG_ENFORCER_URL`, `TAG_ENFORCER_TOKEN`,
+`TAG_ENFORCER_PUBLIC_URL`) and a matching `TE_API_TOKEN` on Tag Enforcer's side. Both apps default to port 8080, so run
+Tag Enforcer on another port (`TE_HTTP_PORT=8087`). Step by step, with the same-machine, shared-network and separate-host
+variants: [tag-enforcer.md › Connecting the two apps](tag-enforcer.md#connecting-the-two-apps).
+
 ## TLS / reverse proxy
 
 The bundled nginx serves plain HTTP on port 8080. For any shared deployment, terminate TLS in front of it and set:
@@ -176,6 +184,8 @@ When a proxy runs on the same host, publish the app on localhost only, so it can
 
 Set `HTTP_PORT` in `.env` (for example `HTTP_PORT=9090`) and run `docker compose up -d`. Only the web container publishes a
 port; api, worker, db and redis are reachable only on the internal Compose network.
+
+If Tag Enforcer links here, update its `TE_DISCOVERY_URL` to the new port too.
 
 ## Upgrading
 

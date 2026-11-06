@@ -178,6 +178,8 @@ Sizing guidance for large estates:
 | Everyone was signed out | `SESSION_SECRET` changed, or session expiry | Expected |
 | 403 “CSRF validation failed” from scripts | missing `X-CSRF-Token` | See [api.md](api.md#authentication--csrf) |
 | “Archive folder /archive is not writable” | host folder in `HISTORY_ARCHIVE_PATH` not owned by UID 10001 | `sudo chown 10001:10001 <folder>`, or unset `HISTORY_ARCHIVE_PATH` to use the volume |
+| System Health: Tag Enforcer import failed | token, address or Tag Enforcer itself | See [tag-enforcer.md › Troubleshooting](tag-enforcer.md#troubleshooting-the-connection) |
+| `compliant:` / `blindspot:` searches return nothing | integration off, no import yet, or nothing matched | Check the Tag Enforcer card on System Health, then **Import now** |
 | Light theme flashes dark on load | `theme.js` blocked or cached | Hard-refresh. Check that `/theme.js` loads (CSP allows `'self'`) |
 
 ## FAQ
@@ -193,6 +195,9 @@ live from the inspector, and the Metrics and Logs tabs are always live.
 *Copy not found* to report the misses.
 
 **Where are my saved searches stored?** In PostgreSQL (`saved_searches`). They are included in backups.
+
+**Does the Tag Enforcer integration write to Tag Enforcer or Datadog?** No. Discovery only reads Tag Enforcer's
+`GET /api/compliance/resources`. Fixing tags happens in Tag Enforcer (Remediation), which writes host tags to Datadog.
 
 **Can I use an external PostgreSQL or Redis?** Yes. Set `DATABASE_URL` / `REDIS_URL` in `compose.yaml` and remove the bundled services.
 PostgreSQL 14+ with the `pg_trgm` extension is required.
